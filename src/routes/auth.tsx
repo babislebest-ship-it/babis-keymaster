@@ -12,7 +12,7 @@ import { initializeAccount } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
-export const Route = createFileRoute("/auth" as any)({
+export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
