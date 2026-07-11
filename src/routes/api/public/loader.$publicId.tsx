@@ -4,6 +4,17 @@ export const Route = createFileRoute("/api/public/loader/$publicId")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
+        const ua = request.headers.get("user-agent") || "";
+        // Only Roblox clients / executors may read the raw loader source.
+        // Browsers, curl, and other tools are rejected.
+        const isRoblox = /Roblox|HttpGet|WinInet|Synapse|Script-Ware|KRNL|Fluxus|Hydrogen|Delta|Arceus/i.test(ua);
+        const looksLikeBrowser = /Mozilla|Chrome|Safari|Firefox|Edg\/|curl|wget|python|Go-http/i.test(ua);
+        if (!isRoblox || looksLikeBrowser) {
+          return new Response("Forbidden", {
+            status: 403,
+            headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+          });
+        }
         const origin = new URL(request.url).origin;
         const publicId = String((params as { publicId?: string }).publicId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
         const runUrl = `${origin}/api/public/run/${publicId}`;
