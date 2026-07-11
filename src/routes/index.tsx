@@ -281,10 +281,10 @@ function Dashboard() {
 
           <Tabs defaultValue="scripts" className="min-w-0">
             <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
-              <TabsTrigger value="scripts"><Code2 className="mr-2 size-4" />Scripts</TabsTrigger>
-              <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />Licenses</TabsTrigger>
-              <TabsTrigger value="players"><Users className="mr-2 size-4" />Players</TabsTrigger>
-              <TabsTrigger value="history"><History className="mr-2 size-4" />History</TabsTrigger>
+              <TabsTrigger value="scripts"><Plus className="mr-2 size-4" />Add</TabsTrigger>
+              <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
+              <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
+              <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
               <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
             </TabsList>
 
