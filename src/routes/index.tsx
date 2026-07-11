@@ -42,21 +42,25 @@ export const Route = createFileRoute("/")({
 function Index() {
   const [sessionReady, setSessionReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(Boolean(data.session));
       setSessionReady(true);
+      if (!data.session) navigate({ to: "/auth" });
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedIn(Boolean(session));
       setSessionReady(true);
+      if (!session) navigate({ to: "/auth" });
     });
     return () => data.subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   if (!sessionReady) return <LoadingShell />;
-  return signedIn ? <Dashboard /> : <Landing />;
+  if (!signedIn) return <LoadingShell />;
+  return <Dashboard />;
 }
 
 function LoadingShell() {
