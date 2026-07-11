@@ -7,9 +7,9 @@ export const Route = createFileRoute("/api/public/loader/$publicId")({
         const ua = request.headers.get("user-agent") || "";
         // Only Roblox clients / executors may read the raw loader source.
         // Browsers, curl, and other tools are rejected.
-        const isRoblox = /Roblox|HttpGet|WinInet|Synapse|Script-Ware|KRNL|Fluxus|Hydrogen|Delta|Arceus/i.test(ua);
-        const looksLikeBrowser = /Mozilla|Chrome|Safari|Firefox|Edg\/|curl|wget|python|Go-http/i.test(ua);
-        if (!isRoblox || looksLikeBrowser) {
+        const isRoblox = /Roblox|HttpGet|WinInet|Synapse|Script-Ware|KRNL|Fluxus|Hydrogen|Delta|Arceus|Xeno|Wave|Solara|Swift|Celery|AWP|Valyse|Zorara|Luau/i.test(ua);
+        const looksLikeBrowser = !isRoblox && /Mozilla|Chrome|Safari|Firefox|Edg\/|curl|wget|python|Go-http/i.test(ua);
+        if (!isRoblox && looksLikeBrowser) {
           return new Response("Forbidden", {
             status: 403,
             headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
