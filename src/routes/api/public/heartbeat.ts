@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-export const Route = createFileRoute("/api/public/heartbeat")({
+export const Route = createFileRoute("/api/public/heartbeat" as any)({
   server: {
     handlers: {
       POST: async ({ request }) => {

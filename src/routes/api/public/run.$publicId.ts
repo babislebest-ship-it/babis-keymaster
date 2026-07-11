@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-export const Route = createFileRoute("/api/public/run/$publicId")({
+export const Route = createFileRoute("/api/public/run/$publicId" as any)({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
@@ -17,7 +17,14 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         const reply = (body: Record<string, unknown>, status = 200) =>
           Response.json(body, { status, headers: corsHeaders });
 
-        let parsed: z.infer<ReturnType<typeof z.object>>;
+        let parsed: {
+          licenseKey: string;
+          playerUserId: string;
+          playerName: string;
+          placeId: string;
+          jobId: string;
+          executorName: string;
+        };
         try {
           const body = await request.json();
           parsed = z
@@ -34,7 +41,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           return reply({ ok: false, message: "Invalid launch request." }, 400);
         }
 
-        const publicId = params.publicId.replace(/[^a-zA-Z0-9_-]/g, "");
+        const publicId = String((params as { publicId?: string }).publicId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
         const forwarded = request.headers.get("x-forwarded-for") ?? "";
         const ip = forwarded.split(",")[0]?.trim() || request.headers.get("cf-connecting-ip") || "unknown";
         const ipHash = createHash("sha256").update(`babis:${ip}`).digest("hex");
@@ -100,8 +107,8 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               first_used_at: licenseRow.first_used_at ?? new Date().toISOString(),
               last_used_at: new Date().toISOString(),
               usage_count: (licenseRow.usage_count ?? 0) + 1,
-              bound_player_user_id: licenseRow.bound_player_user_id ?? parsed.playerUserId || null,
-              bound_player_name: licenseRow.bound_player_name ?? parsed.playerName || null,
+              bound_player_user_id: licenseRow.bound_player_user_id ?? (parsed.playerUserId || null),
+              bound_player_name: licenseRow.bound_player_name ?? (parsed.playerName || null),
             })
             .eq("id", licenseRow.id);
         }

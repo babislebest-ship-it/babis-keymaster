@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/api/public/loader/$publicId")({
+export const Route = createFileRoute("/api/public/loader/$publicId" as any)({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
         const origin = new URL(request.url).origin;
-        const publicId = params.publicId.replace(/[^a-zA-Z0-9_-]/g, "");
+        const publicId = String((params as { publicId?: string }).publicId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
         const runUrl = `${origin}/api/public/run/${publicId}`;
         const heartbeatUrl = `${origin}/api/public/heartbeat`;
 
