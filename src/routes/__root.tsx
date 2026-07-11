@@ -88,10 +88,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Babis Script License Portal" },
       {
         property: "og:description",
-        content: "Manage scripts, license keys, staff permissions, bans, and player usage from one portal.",
+        content: "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Babis Script License Portal" },
+      { name: "twitter:description", content: "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs." },
     ],
     links: [
       {
