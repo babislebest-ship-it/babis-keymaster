@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
@@ -18,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -133,6 +134,9 @@ const emptyScript = {
 function Dashboard() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const getAccount = useServerFn(getAccountState);
+  const getDashboard = useServerFn(getDashboardData);
+  const runDashboardAction = useServerFn(dashboardAction);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeScriptId, setActiveScriptId] = useState<string>("");
   const [scriptForm, setScriptForm] = useState(emptyScript);
@@ -148,8 +152,8 @@ function Dashboard() {
     canViewLogs: true,
   });
 
-  const account = useQuery({ queryKey: ["account"], queryFn: () => getAccountState() });
-  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => getDashboardData(), retry: false });
+  const account = useQuery({ queryKey: ["account"], queryFn: () => getAccount() });
+  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => getDashboard(), retry: false });
   const data = dashboard.data as any;
   const scripts: ScriptRow[] = data?.scripts ?? [];
   const licenses: LicenseRow[] = data?.licenses ?? [];
@@ -166,7 +170,7 @@ function Dashboard() {
 
   const action = useMutation({
     mutationFn: (payload: { type: string; payload?: Record<string, unknown> }) =>
-      dashboardAction({ data: { type: payload.type, payload: payload.payload ?? {} } }),
+      runDashboardAction({ data: { type: payload.type, payload: payload.payload ?? {} } }),
     onSuccess: (_result, variables) => {
       toast.success("Action completed", { description: variables.type });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -382,7 +386,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   return <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{value}</div><div className="text-xs text-muted-foreground">{label}</div></div>;
 }
 
-function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; render: (row: any) => React.ReactNode }) {
+function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; render: (row: any) => ReactNode }) {
   if (!rows.length) return <div className="p-6 text-sm text-muted-foreground">{empty}</div>;
   return <div className="divide-y divide-border">{rows.map((row) => <div key={row.id}>{render(row)}</div>)}</div>;
 }

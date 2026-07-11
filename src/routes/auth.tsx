@@ -12,7 +12,7 @@ import { initializeAccount } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/auth" as any)({
   component: AuthPage,
 });
 
@@ -21,15 +21,18 @@ function AuthPage() {
   const queryClient = useQueryClient();
   const initialize = useServerFn(initializeAccount);
   const [mode, setMode] = useState("signin");
+  const [signedIn, setSignedIn] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("Babis");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/" });
+      setSignedIn(Boolean(data.session));
     });
-  }, [navigate]);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(Boolean(session)));
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   const profileMutation = useMutation({
     mutationFn: () => initialize({ data: { username } }),
@@ -45,6 +48,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return toast.error("Sign in failed", { description: error.message });
     toast.success("Signed in");
+    setSignedIn(true);
     profileMutation.mutate();
   }
 
@@ -72,6 +76,12 @@ function AuthPage() {
           <h1 className="text-2xl font-semibold">Babis Premium</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sign in, then save your username. The first Babis profile becomes owner.</p>
         </div>
+        {signedIn ? (
+          <div className="grid gap-3">
+            <label className="grid gap-1 text-sm">Portal username<Input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" /></label>
+            <Button className="w-full" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}><Shield /> Save profile and enter</Button>
+          </div>
+        ) : (
         <Tabs value={mode} onValueChange={setMode}>
           <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="signin">Sign in</TabsTrigger><TabsTrigger value="signup">Sign up</TabsTrigger></TabsList>
           <div className="mt-4 grid gap-3">
@@ -82,7 +92,8 @@ function AuthPage() {
           <TabsContent value="signin" className="mt-4"><Button className="w-full" onClick={signIn}><LogIn /> Sign in</Button></TabsContent>
           <TabsContent value="signup" className="mt-4"><Button className="w-full" onClick={signUp}><KeyRound /> Create account</Button></TabsContent>
         </Tabs>
-        <Button className="mt-3 w-full" variant="outline" onClick={google}><Chrome /> Continue with Google</Button>
+        )}
+        {!signedIn && <Button className="mt-3 w-full" variant="outline" onClick={google}><Chrome /> Continue with Google</Button>}
         <Button className="mt-3 w-full" variant="ghost" asChild><Link to="/">Back to home</Link></Button>
       </section>
     </main>
