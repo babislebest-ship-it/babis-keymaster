@@ -14,16 +14,430 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      player_bans: {
+        Row: {
+          appeal_url: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          ip_hash: string | null
+          is_active: boolean
+          license_id: string | null
+          player_name: string | null
+          player_user_id: string | null
+          reason: string
+          scope: Database["public"]["Enums"]["ban_scope"]
+          script_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          appeal_url?: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          ip_hash?: string | null
+          is_active?: boolean
+          license_id?: string | null
+          player_name?: string | null
+          player_user_id?: string | null
+          reason?: string
+          scope?: Database["public"]["Enums"]["ban_scope"]
+          script_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appeal_url?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          ip_hash?: string | null
+          is_active?: boolean
+          license_id?: string | null
+          player_name?: string | null
+          player_user_id?: string | null
+          reason?: string
+          scope?: Database["public"]["Enums"]["ban_scope"]
+          script_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_bans_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "script_licenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_bans_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          account_status: string
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          account_status?: string
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          account_status?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      script_licenses: {
+        Row: {
+          bound_player_name: string | null
+          bound_player_user_id: string | null
+          created_at: string
+          created_by: string
+          duration_minutes: number | null
+          expires_at: string | null
+          first_used_at: string | null
+          id: string
+          label: string
+          last_used_at: string | null
+          license_key: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          script_id: string
+          status: Database["public"]["Enums"]["license_status"]
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          bound_player_name?: string | null
+          bound_player_user_id?: string | null
+          created_at?: string
+          created_by: string
+          duration_minutes?: number | null
+          expires_at?: string | null
+          first_used_at?: string | null
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          license_key: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          script_id: string
+          status?: Database["public"]["Enums"]["license_status"]
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          bound_player_name?: string | null
+          bound_player_user_id?: string | null
+          created_at?: string
+          created_by?: string
+          duration_minutes?: number | null
+          expires_at?: string | null
+          first_used_at?: string | null
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          license_key?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          script_id?: string
+          status?: Database["public"]["Enums"]["license_status"]
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_licenses_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_usage_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          license_id: string | null
+          message: string
+          metadata: Json
+          player_name: string | null
+          player_user_id: string | null
+          script_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          license_id?: string | null
+          message?: string
+          metadata?: Json
+          player_name?: string | null
+          player_user_id?: string | null
+          script_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          license_id?: string | null
+          message?: string
+          metadata?: Json
+          player_name?: string | null
+          player_user_id?: string | null
+          script_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_usage_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "script_licenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_usage_events_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_usage_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "script_usage_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_usage_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          executor_name: string | null
+          id: string
+          ip_hash: string | null
+          job_id: string | null
+          kick_reason: string | null
+          last_seen_at: string
+          license_id: string | null
+          place_id: string | null
+          player_name: string | null
+          player_user_id: string | null
+          script_id: string
+          session_token: string
+          started_at: string
+          status: Database["public"]["Enums"]["session_status"]
+          total_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          executor_name?: string | null
+          id?: string
+          ip_hash?: string | null
+          job_id?: string | null
+          kick_reason?: string | null
+          last_seen_at?: string
+          license_id?: string | null
+          place_id?: string | null
+          player_name?: string | null
+          player_user_id?: string | null
+          script_id: string
+          session_token?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          total_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          executor_name?: string | null
+          id?: string
+          ip_hash?: string | null
+          job_id?: string | null
+          kick_reason?: string | null
+          last_seen_at?: string
+          license_id?: string | null
+          place_id?: string | null
+          player_name?: string | null
+          player_user_id?: string | null
+          script_id?: string
+          session_token?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          total_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_usage_sessions_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "script_licenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_usage_sessions_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scripts: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string
+          public_id: string
+          require_license: boolean
+          source_code: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id: string
+          public_id?: string
+          require_license?: boolean
+          source_code?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string
+          public_id?: string
+          require_license?: boolean
+          source_code?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      staff_permissions: {
+        Row: {
+          can_manage_bans: boolean
+          can_manage_licenses: boolean
+          can_manage_scripts: boolean
+          can_manage_users: boolean
+          can_view_logs: boolean
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_manage_bans?: boolean
+          can_manage_licenses?: boolean
+          can_manage_scripts?: boolean
+          can_manage_users?: boolean
+          can_view_logs?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_manage_bans?: boolean
+          can_manage_licenses?: boolean
+          can_manage_scripts?: boolean
+          can_manage_users?: boolean
+          can_view_logs?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "staff" | "member"
+      ban_scope: "script" | "global"
+      license_status: "active" | "revoked" | "banned" | "expired"
+      session_status: "active" | "ended" | "kicked" | "banned" | "error"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +564,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "staff", "member"],
+      ban_scope: ["script", "global"],
+      license_status: ["active", "revoked", "banned", "expired"],
+      session_status: ["active", "ended", "kicked", "banned", "error"],
+    },
   },
 } as const
