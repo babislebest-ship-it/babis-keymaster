@@ -15,6 +15,7 @@ import {
   Plus,
   Save,
   Shield,
+  Trash2,
   UserCog,
   Users,
   X,
@@ -263,10 +264,24 @@ function Dashboard() {
           </Button>
           <div className="space-y-2">
             {scripts.map((script) => (
-              <button key={script.id} onClick={() => editScript(script)} className={`w-full rounded-md border p-3 text-left transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
-                <div className="flex items-center gap-2 text-sm font-semibold"><Code2 className="size-4" />{script.name}</div>
-                <div className="mt-1 text-xs opacity-80">{script.require_license ? "License required" : "Open loader"}</div>
-              </button>
+              <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
+                <button onClick={() => editScript(script)} className="flex-1 min-w-0 p-3 text-left">
+                  <div className="flex items-center gap-2 text-sm font-semibold"><Code2 className="size-4" />{script.name}</div>
+                  <div className="mt-1 text-xs opacity-80">{script.require_license ? "License required" : "Open loader"}</div>
+                </button>
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!can.scripts) return toast.error("Missing script permission");
+                    if (!confirm(`Delete script "${script.name}"? This cannot be undone.`)) return;
+                    action.mutate({ type: "deleteScript", payload: { id: script.id } });
+                  }}
+                  className="px-3 opacity-70 hover:opacity-100"
+                  title="Delete script"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
             ))}
           </div>
         </aside>
@@ -338,7 +353,7 @@ function Dashboard() {
                   <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7rem_13rem] lg:items-center">
                     <div className="min-w-0"><div className="mono-box font-mono text-sm">{license.license_key}</div><div className="mt-1 text-xs text-muted-foreground">{license.label || "Untitled"} · {license.bound_player_name || "unused"}</div></div>
                     <div className="text-sm capitalize text-muted-foreground">{license.status}</div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button></div>
+                    <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button><Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this license key?")) return; action.mutate({ type: "deleteLicense", payload: { id: license.id } }); }}><Trash2 />Delete</Button></div>
                   </div>
                 )} />
               </div>
