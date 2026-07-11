@@ -301,6 +301,14 @@ export const dashboardAction = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    if (data.type === "deleteLicense") {
+      if (!has("licenses")) throw new Error("Missing license management permission.");
+      const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      const { error } = await db.from("script_licenses").delete().eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
     if (data.type === "addBan") {
       if (!has("bans")) throw new Error("Missing ban management permission.");
       const payload = z
