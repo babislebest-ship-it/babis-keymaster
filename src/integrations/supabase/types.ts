@@ -80,6 +80,65 @@ export type Database = {
           },
         ]
       }
+      player_history: {
+        Row: {
+          connection_count: number
+          created_at: string
+          executor_name: string | null
+          first_seen_at: string
+          id: string
+          ip_hash: string | null
+          job_id: string | null
+          last_script_id: string | null
+          last_seen_at: string
+          place_id: string | null
+          player_key: string
+          player_name: string | null
+          player_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          connection_count?: number
+          created_at?: string
+          executor_name?: string | null
+          first_seen_at?: string
+          id?: string
+          ip_hash?: string | null
+          job_id?: string | null
+          last_script_id?: string | null
+          last_seen_at?: string
+          place_id?: string | null
+          player_key: string
+          player_name?: string | null
+          player_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connection_count?: number
+          created_at?: string
+          executor_name?: string | null
+          first_seen_at?: string
+          id?: string
+          ip_hash?: string | null
+          job_id?: string | null
+          last_script_id?: string | null
+          last_seen_at?: string
+          place_id?: string | null
+          player_key?: string
+          player_name?: string | null
+          player_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_history_last_script_id_fkey"
+            columns: ["last_script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           account_status: string
@@ -250,6 +309,7 @@ export type Database = {
           kick_reason: string | null
           last_seen_at: string
           license_id: string | null
+          pending_message: string | null
           place_id: string | null
           player_name: string | null
           player_user_id: string | null
@@ -270,6 +330,7 @@ export type Database = {
           kick_reason?: string | null
           last_seen_at?: string
           license_id?: string | null
+          pending_message?: string | null
           place_id?: string | null
           player_name?: string | null
           player_user_id?: string | null
@@ -290,6 +351,7 @@ export type Database = {
           kick_reason?: string | null
           last_seen_at?: string
           license_id?: string | null
+          pending_message?: string | null
           place_id?: string | null
           player_name?: string | null
           player_user_id?: string | null
