@@ -133,7 +133,7 @@ export const getDashboardData = createServerFn({ method: "GET" })
         db.from("script_licenses").select("*").order("created_at", { ascending: false }),
         db.from("player_bans").select("*").order("created_at", { ascending: false }),
         db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200),
-        db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(300),
+        db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150),
         db.from("profiles").select("id,username,display_name,account_status,created_at,updated_at").order("created_at", { ascending: false }),
         db.from("user_roles").select("*").order("created_at", { ascending: false }),
         db.from("staff_permissions").select("*"),
@@ -142,6 +142,13 @@ export const getDashboardData = createServerFn({ method: "GET" })
     for (const result of [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult]) {
       if (result.error) throw new Error(result.error.message);
     }
+
+    const { data: history, error: historyError } = await db
+      .from("player_history")
+      .select("*")
+      .order("last_seen_at", { ascending: false })
+      .limit(500);
+    if (historyError) throw new Error(historyError.message);
 
     return {
       profile: profileResult.data,
@@ -155,6 +162,7 @@ export const getDashboardData = createServerFn({ method: "GET" })
       users: usersResult.data ?? [],
       userRoles: rolesResult.data ?? [],
       staffPermissions: staffResult.data ?? [],
+      history: history ?? [],
     };
   });
 
@@ -316,22 +324,59 @@ export const dashboardAction = createServerFn({ method: "POST" })
           scope: z.enum(["script", "global"]),
           scriptId: z.string().uuid().nullable().optional(),
           playerUserId: z.string().trim().max(80).optional().default(""),
-          playerName: z.string().trim().max(80).optional().default(""),
+          playerName: z.string().trim().min(1).max(80),
           licenseId: z.string().uuid().nullable().optional(),
+          ipHash: z.string().trim().max(120).optional().nullable(),
+          includeIp: z.boolean().optional().default(false),
           reason: z.string().trim().min(1).max(300),
-          expiresAt: z.string().datetime().nullable().optional(),
+          durationMinutes: z.number().int().positive().nullable().optional(),
         })
         .parse(data.payload);
+      const expiresAt = payload.durationMinutes
+        ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
+        : null;
       const { error } = await db.from("player_bans").insert({
         scope: payload.scope,
         script_id: payload.scope === "script" ? payload.scriptId : null,
         player_user_id: payload.playerUserId || null,
         player_name: payload.playerName || null,
         license_id: payload.licenseId ?? null,
+        ip_hash: payload.includeIp ? (payload.ipHash || null) : null,
         reason: payload.reason,
-        expires_at: payload.expiresAt ?? null,
+        expires_at: expiresAt,
         created_by: userId,
       });
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "sendMessage") {
+      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
+      const payload = z
+        .object({ id: z.string().uuid(), message: z.string().trim().min(1).max(300) })
+        .parse(data.payload);
+      const { data: session, error } = await db
+        .from("script_usage_sessions")
+        .update({ pending_message: payload.message })
+        .eq("id", payload.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await db.from("script_usage_events").insert({
+        script_id: session.script_id,
+        session_id: session.id,
+        event_type: "message_sent",
+        player_user_id: session.player_user_id,
+        player_name: session.player_name,
+        message: payload.message,
+      });
+      return { ok: true };
+    }
+
+    if (data.type === "deleteHistory") {
+      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
+      const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      const { error } = await db.from("player_history").delete().eq("id", payload.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
