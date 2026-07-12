@@ -58,15 +58,17 @@ export const Route = createFileRoute("/api/public/heartbeat")({
           return reply({ ok: true, action: "kick", reason: bans[0].reason });
         }
 
+        const pendingMessage = session.pending_message as string | null;
         await db
           .from("script_usage_sessions")
           .update({
             last_seen_at: new Date().toISOString(),
             total_seconds: Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000)),
+            pending_message: null,
           })
           .eq("id", session.id);
 
-        return reply({ ok: true, action: "continue" });
+        return reply({ ok: true, action: "continue", message: pendingMessage || null });
       },
       OPTIONS: async () =>
         new Response(null, {

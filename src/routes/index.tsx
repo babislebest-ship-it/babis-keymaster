@@ -18,6 +18,8 @@ import {
   Trash2,
   UserCog,
   Users,
+  MessageSquare,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -148,6 +150,15 @@ function Dashboard() {
   const [licenseMinutes, setLicenseMinutes] = useState("0");
   const [licenseLabel, setLicenseLabel] = useState("");
   const [banReason, setBanReason] = useState("Access revoked by Babis staff.");
+  const [banForm, setBanForm] = useState({
+    playerName: "",
+    scope: "global" as "global" | "script",
+    scriptId: "",
+    duration: "0",
+    includeIp: false,
+    reason: "Access revoked by Babis staff.",
+  });
+  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
     canManageScripts: true,
@@ -158,16 +169,29 @@ function Dashboard() {
   });
 
   const account = useQuery({ queryKey: ["account"], queryFn: () => getAccount() });
-  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => getDashboard(), retry: false });
+  const dashboard = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => getDashboard(),
+    retry: false,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+  });
   const data = dashboard.data as any;
   const scripts: ScriptRow[] = data?.scripts ?? [];
   const licenses: LicenseRow[] = data?.licenses ?? [];
   const sessions: SessionRow[] = data?.sessions ?? [];
+  const history: any[] = data?.history ?? [];
   const selectedScript = scripts.find((script) => script.id === activeScriptId) ?? scripts[0];
   const selectedScriptId = selectedScript?.id ?? "";
   const loader = selectedScript ? `loadstring(game:HttpGet("${window.location.origin}/api/public/loader/${selectedScript.public_id}", true))()` : "";
   const scriptLicenses = licenses.filter((license) => license.script_id === selectedScriptId);
+  // Live = active AND heartbeat within 45s
+  const now = Date.now();
+  const isLive = (session: SessionRow) =>
+    session.status === "active" && now - new Date(session.last_seen_at).getTime() < 45_000;
   const scriptSessions = sessions.filter((session) => session.script_id === selectedScriptId);
+  const liveSessions = sessions.filter(isLive);
+  const scriptNameById = (id: string) => scripts.find((s) => s.id === id)?.name ?? "—";
 
   useEffect(() => {
     if (!activeScriptId && scripts[0]) setActiveScriptId(scripts[0].id);
@@ -361,27 +385,136 @@ function Dashboard() {
 
             <TabsContent value="players" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="app-panel overflow-hidden rounded-lg">
-                <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Live players by script</h2></div>
-                <ResponsiveRows rows={scriptSessions} empty="No active player sessions for this script." render={(session) => (
-                  <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_8rem_16rem] lg:items-center">
-                    <div><div className="font-semibold">{session.player_name || "Unknown player"}</div><div className="text-xs text-muted-foreground">User {session.player_user_id || "n/a"} · {Math.round((session.total_seconds ?? 0) / 60)} min · {session.executor_name || "runtime"}</div></div>
-                    <div className="text-sm capitalize text-muted-foreground">{session.status}</div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } })}>Kick</Button><Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "script", scriptId: session.script_id, playerUserId: session.player_user_id, playerName: session.player_name, licenseId: session.license_id, reason: banReason } })}><Ban />Ban</Button></div>
-                  </div>
-                )} />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
+                  <h2 className="text-lg font-semibold">Live players ({liveSessions.length})</h2>
+                  <div className="text-xs text-muted-foreground">Auto-refresh every 10s · stale after 45s</div>
+                </div>
+                <ResponsiveRows rows={liveSessions} empty="No live players right now." render={(session) => {
+                  const draft = messageDrafts[session.id] ?? "";
+                  const joinUrl = session.place_id && session.job_id
+                    ? `roblox://experiences/start?placeId=${session.place_id}&gameInstanceId=${session.job_id}`
+                    : "";
+                  return (
+                    <div className="grid gap-3 p-4">
+                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                        <div>
+                          <div className="font-semibold">{session.player_name || "Unknown"} <span className="ml-2 text-xs font-normal text-muted-foreground">[{scriptNameById(session.script_id)}]</span></div>
+                          <div className="text-xs text-muted-foreground">
+                            UserId {session.player_user_id || "n/a"} · {session.executor_name || "runtime"} · {Math.round((session.total_seconds ?? 0) / 60)} min
+                          </div>
+                          <div className="text-xs text-muted-foreground">Place {session.place_id || "?"} · Job {session.job_id || "?"}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {joinUrl && (
+                            <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } })}>Kick</Button>
+                          <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "script", scriptId: session.script_id, playerUserId: session.player_user_id, playerName: session.player_name || "unknown", licenseId: session.license_id, includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input placeholder="Message to player…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [session.id]: e.target.value })} />
+                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "sendMessage", payload: { id: session.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [session.id]: "" }); }}><MessageSquare className="size-4" />Send</Button>
+                      </div>
+                      {session.pending_message && <div className="text-xs text-muted-foreground">Pending: {session.pending_message}</div>}
+                    </div>
+                  );
+                }} />
               </div>
               <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Ban controls</h2>
+                <h2 className="text-lg font-semibold">Default kick reason</h2>
                 <Textarea className="mt-3 min-h-24" value={banReason} onChange={(event) => setBanReason(event.target.value)} />
-                <div className="mt-4 space-y-2 text-sm text-muted-foreground">{(data?.bans ?? []).slice(0, 8).map((ban: any) => <div key={ban.id} className="rounded-md border border-border bg-muted p-3"><div className="font-medium text-foreground">{ban.player_name || ban.player_user_id || "IP/license ban"}</div><div>{ban.reason}</div><Button className="mt-2" size="sm" variant="outline" onClick={() => action.mutate({ type: "setBanActive", payload: { id: ban.id, isActive: !ban.is_active } })}>{ban.is_active ? "Disable" : "Enable"}</Button></div>)}</div>
+                <p className="mt-2 text-xs text-muted-foreground">Used when kicking or quick-banning live players.</p>
               </div>
             </TabsContent>
 
-            <TabsContent value="history">
-              <div className="app-panel overflow-hidden rounded-lg">
-                <ResponsiveRows rows={data?.events ?? []} empty="No history yet." render={(event: any) => (
-                  <div className="grid gap-2 p-4 md:grid-cols-[12rem_minmax(0,1fr)_13rem]"><div className="font-mono text-xs text-primary">{event.event_type}</div><div><div className="text-sm font-medium">{event.player_name || "System"}</div><div className="text-sm text-muted-foreground">{event.message}</div></div><div className="text-xs text-muted-foreground md:text-right">{new Date(event.created_at).toLocaleString()}</div></div>
-                )} />
+            <TabsContent value="history" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
+              <div className="app-panel rounded-lg p-4 sm:p-5">
+                <h2 className="text-lg font-semibold">Ban a player</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Ban directly by Roblox username.</p>
+                <label className="mt-4 grid gap-1 text-sm">Roblox username<Input value={banForm.playerName} onChange={(e) => setBanForm({ ...banForm, playerName: e.target.value })} placeholder="e.g. Builderman" /></label>
+                <label className="mt-3 grid gap-1 text-sm">Scope
+                  <Select value={banForm.scope} onValueChange={(v) => setBanForm({ ...banForm, scope: v as "global" | "script" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">All scripts</SelectItem>
+                      <SelectItem value="script">Specific script</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
+                {banForm.scope === "script" && (
+                  <label className="mt-3 grid gap-1 text-sm">Script
+                    <Select value={banForm.scriptId} onValueChange={(v) => setBanForm({ ...banForm, scriptId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
+                      <SelectContent>{scripts.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </label>
+                )}
+                <label className="mt-3 grid gap-1 text-sm">Duration
+                  <Select value={banForm.duration} onValueChange={(v) => setBanForm({ ...banForm, duration: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Permanent</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="1440">1 day</SelectItem>
+                      <SelectItem value="10080">7 days</SelectItem>
+                      <SelectItem value="43200">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Include IP ban<Switch checked={banForm.includeIp} onCheckedChange={(v) => setBanForm({ ...banForm, includeIp: v })} /></label>
+                <label className="mt-3 grid gap-1 text-sm">Reason<Textarea value={banForm.reason} onChange={(e) => setBanForm({ ...banForm, reason: e.target.value })} className="min-h-20" /></label>
+                <Button
+                  className="mt-4 w-full"
+                  disabled={!can.bans || !banForm.playerName.trim() || (banForm.scope === "script" && !banForm.scriptId)}
+                  onClick={() => {
+                    // find matching history row for ip_hash if includeIp
+                    const hist = history.find((h: any) => h.player_name?.toLowerCase() === banForm.playerName.trim().toLowerCase());
+                    action.mutate({
+                      type: "addBan",
+                      payload: {
+                        scope: banForm.scope,
+                        scriptId: banForm.scope === "script" ? banForm.scriptId : null,
+                        playerName: banForm.playerName.trim(),
+                        playerUserId: hist?.player_user_id || "",
+                        includeIp: banForm.includeIp,
+                        ipHash: hist?.ip_hash || null,
+                        durationMinutes: banForm.duration === "0" ? null : Number(banForm.duration),
+                        reason: banForm.reason,
+                      },
+                    });
+                  }}
+                ><Ban className="size-4" />Ban player</Button>
+              </div>
+              <div className="grid gap-4">
+                <div className="app-panel overflow-hidden rounded-lg">
+                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Active bans ({(data?.bans ?? []).filter((b: any) => b.is_active).length})</h2></div>
+                  <ResponsiveRows rows={data?.bans ?? []} empty="No bans." render={(ban: any) => (
+                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                      <div>
+                        <div className="font-medium">{ban.player_name || ban.player_user_id || "License/IP ban"} <span className="ml-2 text-xs text-muted-foreground">{ban.scope === "global" ? "all scripts" : scriptNameById(ban.script_id)}</span></div>
+                        <div className="text-xs text-muted-foreground">{ban.reason} {ban.ip_hash ? "· IP" : ""} {ban.expires_at ? `· until ${new Date(ban.expires_at).toLocaleString()}` : "· permanent"}</div>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setBanActive", payload: { id: ban.id, isActive: !ban.is_active } })}>{ban.is_active ? "Disable" : "Enable"}</Button>
+                    </div>
+                  )} />
+                </div>
+                <div className="app-panel overflow-hidden rounded-lg">
+                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Historical players ({history.length})</h2></div>
+                  <ResponsiveRows rows={history} empty="No player history yet." render={(row: any) => (
+                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                      <div>
+                        <div className="font-medium">{row.player_name || "Unknown"} <span className="ml-2 text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span></div>
+                        <div className="text-xs text-muted-foreground">{row.executor_name || "runtime"} · {row.connection_count} launches · last {new Date(row.last_seen_at).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">IP {row.ip_hash ? row.ip_hash.slice(0, 12) + "…" : "n/a"}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setBanForm({ ...banForm, playerName: row.player_name || "", scope: "global" })}><Ban className="size-4" />Prep ban</Button>
+                        <Button size="sm" variant="destructive" onClick={() => { if (!confirm("Remove this history entry?")) return; action.mutate({ type: "deleteHistory", payload: { id: row.id } }); }}><Trash2 className="size-4" /></Button>
+                      </div>
+                    </div>
+                  )} />
+                </div>
               </div>
             </TabsContent>
 
