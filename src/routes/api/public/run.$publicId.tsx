@@ -139,6 +139,43 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           message: "Launch authorized",
         });
 
+        // Upsert player history (deduplicated by player_key)
+        const playerKey = parsed.playerUserId || parsed.playerName || ipHash;
+        if (playerKey) {
+          const { data: existing } = await db
+            .from("player_history")
+            .select("id,connection_count")
+            .eq("player_key", playerKey)
+            .maybeSingle();
+          if (existing) {
+            await db
+              .from("player_history")
+              .update({
+                player_user_id: parsed.playerUserId || null,
+                player_name: parsed.playerName || null,
+                executor_name: parsed.executorName || null,
+                ip_hash: ipHash,
+                last_script_id: script.id,
+                place_id: parsed.placeId || null,
+                job_id: parsed.jobId || null,
+                connection_count: (existing.connection_count ?? 0) + 1,
+                last_seen_at: new Date().toISOString(),
+              })
+              .eq("id", existing.id);
+          } else {
+            await db.from("player_history").insert({
+              player_key: playerKey,
+              player_user_id: parsed.playerUserId || null,
+              player_name: parsed.playerName || null,
+              executor_name: parsed.executorName || null,
+              ip_hash: ipHash,
+              last_script_id: script.id,
+              place_id: parsed.placeId || null,
+              job_id: parsed.jobId || null,
+            });
+          }
+        }
+
         return reply({ ok: true, source: script.source_code, sessionToken: session.session_token });
       },
       OPTIONS: async () =>
