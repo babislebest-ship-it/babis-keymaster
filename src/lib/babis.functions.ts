@@ -121,70 +121,76 @@ export const getDashboardData = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
+    const caller = await loadCaller(db, userId);
+    const isTeam = caller.isTeam;
 
-    const { data: roles, error: rolesError } = await db
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (rolesError) throw new Error(rolesError.message);
-    const roleList = (roles ?? []).map((row: { role: string }) => row.role);
+    // Scripts scope: team sees all, regular user sees own.
+    const scriptsQuery = db.from("scripts").select("*").order("updated_at", { ascending: false });
+    const [scriptsResult] = await Promise.all([
+      isTeam ? scriptsQuery : scriptsQuery.eq("owner_id", userId),
+    ]);
+    if (scriptsResult.error) throw new Error(scriptsResult.error.message);
+    const scripts = scriptsResult.data ?? [];
+    const scriptIds = scripts.map((s: any) => s.id);
 
-    const { data: permissions, error: permissionError } = await db
-      .from("staff_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (permissionError) throw new Error(permissionError.message);
+    const scriptFilter = <T extends { script_id?: string | null }>(q: any) =>
+      isTeam ? q : (scriptIds.length ? q.in("script_id", scriptIds) : { data: [], error: null });
 
-    const canAccess =
-      roleList.includes("owner") ||
-      roleList.includes("staff") ||
-      Boolean(
-        permissions?.can_manage_scripts ||
-          permissions?.can_manage_licenses ||
-          permissions?.can_manage_bans ||
-          permissions?.can_manage_users ||
-          permissions?.can_view_logs,
-      );
-    if (!canAccess) throw new Error("Your account does not have dashboard access yet.");
+    const [licensesResult, bansResult, sessionsResult, eventsResult, historyResult] = await Promise.all([
+      scriptFilter(db.from("script_licenses").select("*").order("created_at", { ascending: false })),
+      scriptFilter(db.from("player_bans").select("*").order("created_at", { ascending: false })),
+      scriptFilter(db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200)),
+      scriptFilter(db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150)),
+      scriptFilter(db.from("player_history").select("*").order("last_seen_at", { ascending: false }).limit(500)),
+    ]);
 
-    const [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult] =
-      await Promise.all([
-        db.from("profiles").select("*").eq("id", userId).maybeSingle(),
-        db.from("scripts").select("*").order("updated_at", { ascending: false }),
-        db.from("script_licenses").select("*").order("created_at", { ascending: false }),
-        db.from("player_bans").select("*").order("created_at", { ascending: false }),
-        db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200),
-        db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150),
-        db.from("profiles").select("id,username,display_name,account_status,created_at,updated_at").order("created_at", { ascending: false }),
-        db.from("user_roles").select("*").order("created_at", { ascending: false }),
-        db.from("staff_permissions").select("*"),
-      ]);
-
-    for (const result of [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult]) {
-      if (result.error) throw new Error(result.error.message);
+    for (const r of [licensesResult, bansResult, sessionsResult, eventsResult, historyResult]) {
+      if (r?.error) throw new Error(r.error.message);
     }
 
-    const { data: history, error: historyError } = await db
-      .from("player_history")
-      .select("*")
-      .order("last_seen_at", { ascending: false })
-      .limit(500);
-    if (historyError) throw new Error(historyError.message);
+    // Owner-only global views
+    let users: any[] = [];
+    let userRoles: any[] = [];
+    let staffPermissions: any[] = [];
+    let premiumKeys: any[] = [];
+    let allLiveSessions: any[] = [];
+    if (caller.isOwner) {
+      const [u, ur, sp, pk, als] = await Promise.all([
+        db.from("profiles").select("id,username,display_name,account_status,premium_expires_at,loader_name,created_at,updated_at").order("created_at", { ascending: false }),
+        db.from("user_roles").select("*"),
+        db.from("staff_permissions").select("*"),
+        db.from("premium_licenses").select("*").order("created_at", { ascending: false }),
+        db.from("script_usage_sessions").select("*").eq("status", "active").order("last_seen_at", { ascending: false }).limit(500),
+      ]);
+      for (const r of [u, ur, sp, pk, als]) if (r.error) throw new Error(r.error.message);
+      users = u.data ?? [];
+      userRoles = ur.data ?? [];
+      staffPermissions = sp.data ?? [];
+      premiumKeys = pk.data ?? [];
+      allLiveSessions = als.data ?? [];
+    }
 
     return {
-      profile: profileResult.data,
-      roles: roleList,
-      permissions,
-      scripts: scriptsResult.data ?? [],
+      profile: caller.profile,
+      roles: caller.roles,
+      permissions: caller.perms,
+      isOwner: caller.isOwner,
+      isStaff: caller.isStaff,
+      isPremium: caller.isPremium,
+      loaderName: caller.profile?.loader_name || "Babis Premium",
+      premiumExpiresAt: caller.profile?.premium_expires_at ?? null,
+      scriptLimit: caller.isTeam || caller.isPremium ? null : FREE_SCRIPT_LIMIT,
+      scripts,
       licenses: licensesResult.data ?? [],
       bans: bansResult.data ?? [],
       sessions: sessionsResult.data ?? [],
       events: eventsResult.data ?? [],
-      users: usersResult.data ?? [],
-      userRoles: rolesResult.data ?? [],
-      staffPermissions: staffResult.data ?? [],
-      history: history ?? [],
+      users,
+      userRoles,
+      staffPermissions,
+      history: historyResult.data ?? [],
+      premiumKeys,
+      allLiveSessions,
     };
   });
 
