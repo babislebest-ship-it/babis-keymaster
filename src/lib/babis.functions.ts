@@ -3,12 +3,52 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// ---- helpers -------------------------------------------------------------
+
+const FREE_SCRIPT_LIMIT = 10;
+
+function isPremiumActive(profile: any): boolean {
+  if (!profile?.premium_expires_at) return false;
+  return new Date(profile.premium_expires_at).getTime() > Date.now();
+}
+
+async function loadCaller(db: any, userId: string) {
+  const [profileRes, rolesRes, permsRes] = await Promise.all([
+    db.from("profiles").select("*").eq("id", userId).maybeSingle(),
+    db.from("user_roles").select("role").eq("user_id", userId),
+    db.from("staff_permissions").select("*").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (profileRes.error) throw new Error(profileRes.error.message);
+  if (rolesRes.error) throw new Error(rolesRes.error.message);
+  if (permsRes.error) throw new Error(permsRes.error.message);
+  const roles: string[] = (rolesRes.data ?? []).map((r: { role: string }) => r.role);
+  const isOwner = roles.includes("owner");
+  const isStaff = roles.includes("staff");
+  const isPremium = isPremiumActive(profileRes.data);
+  return {
+    profile: profileRes.data,
+    roles,
+    perms: permsRes.data,
+    isOwner,
+    isStaff,
+    isPremium,
+    isTeam: isOwner || isStaff, // members of Babis team
+  };
+}
+
+function genKey(prefix: string) {
+  return `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase()}`;
+}
+
+// -------------------------------------------------------------------------
+
 export const initializeAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
         username: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_]+$/),
+        displayName: z.string().trim().max(64).optional(),
       })
       .parse(input),
   )
@@ -16,7 +56,7 @@ export const initializeAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
-    const displayName = data.username;
+    const displayName = data.displayName?.trim() || data.username;
 
     const { error: profileError } = await db.from("profiles").upsert({
       id: userId,
