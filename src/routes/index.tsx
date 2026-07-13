@@ -3,12 +3,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
-  Check,
-  Clipboard,
   Code2,
   Copy,
+  Crown,
   Edit3,
-  History,
   KeyRound,
   LogOut,
   Menu,
@@ -20,6 +18,7 @@ import {
   Users,
   MessageSquare,
   ExternalLink,
+  Lock,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -167,6 +166,11 @@ function Dashboard() {
     canManageUsers: false,
     canViewLogs: true,
   });
+  const [premiumKeyInput, setPremiumKeyInput] = useState("");
+  const [premiumKeyLabel, setPremiumKeyLabel] = useState("");
+  const [premiumKeyDuration, setPremiumKeyDuration] = useState("43200"); // 30 days
+  const [newStaff, setNewStaff] = useState({ username: "", password: "" });
+  const [loaderNameDraft, setLoaderNameDraft] = useState("");
 
   const account = useQuery({ queryKey: ["account"], queryFn: () => getAccount() });
   const dashboard = useQuery({
@@ -181,6 +185,20 @@ function Dashboard() {
   const licenses: LicenseRow[] = data?.licenses ?? [];
   const sessions: SessionRow[] = data?.sessions ?? [];
   const history: any[] = data?.history ?? [];
+  const isOwner: boolean = Boolean(data?.isOwner);
+  const isStaff: boolean = Boolean(data?.isStaff);
+  const isTeam = isOwner || isStaff;
+  const isPremium: boolean = Boolean(data?.isPremium);
+  const scriptLimit: number | null = data?.scriptLimit ?? null;
+  const premiumKeys: any[] = data?.premiumKeys ?? [];
+  const allLiveSessions: any[] = data?.allLiveSessions ?? [];
+  const currentLoaderName: string = data?.loaderName || "Babis Premium";
+  const premiumExpires: string | null = data?.premiumExpiresAt ?? null;
+
+  useEffect(() => {
+    if (!loaderNameDraft && currentLoaderName) setLoaderNameDraft(currentLoaderName);
+  }, [currentLoaderName, loaderNameDraft]);
+
   const selectedScript = scripts.find((script) => script.id === activeScriptId) ?? scripts[0];
   const selectedScriptId = selectedScript?.id ?? "";
   const loader = selectedScript ? `loadstring(game:HttpGet("${window.location.origin}/api/public/loader/${selectedScript.public_id}", true))()` : "";
@@ -207,18 +225,29 @@ function Dashboard() {
     onError: (error) => toast.error("Action failed", { description: error.message }),
   });
 
+  // Non-team users can always manage their own scripts/licenses/bans (scoped
+  // to their own rows server-side). Team members need explicit permissions.
   const can = useMemo(() => {
-    const roles = data?.roles ?? [];
     const permission = data?.permissions ?? {};
-    const owner = roles.includes("owner");
+    if (!isTeam) return { scripts: true, licenses: true, bans: true, users: false, logs: false };
+    if (isOwner) return { scripts: true, licenses: true, bans: true, users: true, logs: true };
     return {
-      scripts: owner || permission.can_manage_scripts,
-      licenses: owner || permission.can_manage_licenses,
-      bans: owner || permission.can_manage_bans,
-      users: owner || permission.can_manage_users,
-      logs: owner || permission.can_view_logs,
+      scripts: Boolean(permission.can_manage_scripts),
+      licenses: Boolean(permission.can_manage_licenses),
+      bans: Boolean(permission.can_manage_bans),
+      users: Boolean(permission.can_manage_users),
+      logs: Boolean(permission.can_view_logs),
     };
-  }, [data]);
+  }, [data, isOwner, isTeam]);
+
+  // Premium gate: called from click handlers. Returns true if allowed.
+  const gatePremium = (feature: string) => {
+    if (isTeam || isPremium) return true;
+    toast.error("Premium required", { description: `${feature} is a premium feature. Redeem a license key on the Upgrade tab.` });
+    return false;
+  };
+
+  const canAddScript = isTeam || isPremium || scripts.length < (scriptLimit ?? Infinity);
 
   async function copyText(label: string, value: string) {
     if (!value) return toast.error("Nothing to copy");
