@@ -381,7 +381,10 @@ function Dashboard() {
               <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
               <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
               <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
-              <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
+              {isTeam && <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>}
+              {(!isTeam) && <TabsTrigger value="upgrade"><Crown className="mr-2 size-4" />Upgrade</TabsTrigger>}
+              {isTeam && (isPremium || isTeam) && <TabsTrigger value="brand"><Shield className="mr-2 size-4" />Loader</TabsTrigger>}
+              {!isTeam && isPremium && <TabsTrigger value="brand"><Shield className="mr-2 size-4" />Loader</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
