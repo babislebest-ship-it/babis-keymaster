@@ -3,12 +3,52 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// ---- helpers -------------------------------------------------------------
+
+const FREE_SCRIPT_LIMIT = 10;
+
+function isPremiumActive(profile: any): boolean {
+  if (!profile?.premium_expires_at) return false;
+  return new Date(profile.premium_expires_at).getTime() > Date.now();
+}
+
+async function loadCaller(db: any, userId: string) {
+  const [profileRes, rolesRes, permsRes] = await Promise.all([
+    db.from("profiles").select("*").eq("id", userId).maybeSingle(),
+    db.from("user_roles").select("role").eq("user_id", userId),
+    db.from("staff_permissions").select("*").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (profileRes.error) throw new Error(profileRes.error.message);
+  if (rolesRes.error) throw new Error(rolesRes.error.message);
+  if (permsRes.error) throw new Error(permsRes.error.message);
+  const roles: string[] = (rolesRes.data ?? []).map((r: { role: string }) => r.role);
+  const isOwner = roles.includes("owner");
+  const isStaff = roles.includes("staff");
+  const isPremium = isPremiumActive(profileRes.data);
+  return {
+    profile: profileRes.data,
+    roles,
+    perms: permsRes.data,
+    isOwner,
+    isStaff,
+    isPremium,
+    isTeam: isOwner || isStaff, // members of Babis team
+  };
+}
+
+function genKey(prefix: string) {
+  return `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase()}`;
+}
+
+// -------------------------------------------------------------------------
+
 export const initializeAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
         username: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_]+$/),
+        displayName: z.string().trim().max(64).optional(),
       })
       .parse(input),
   )
@@ -16,7 +56,7 @@ export const initializeAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
-    const displayName = data.username;
+    const displayName = data.displayName?.trim() || data.username;
 
     const { error: profileError } = await db.from("profiles").upsert({
       id: userId,
@@ -62,34 +102,16 @@ export const getAccountState = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
-
-    const { data: profile, error: profileError } = await db
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (profileError) throw new Error(profileError.message);
-
-    const { data: roles, error: rolesError } = await db
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (rolesError) throw new Error(rolesError.message);
-
-    const { data: permissions, error: permissionError } = await db
-      .from("staff_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (permissionError) throw new Error(permissionError.message);
-
-    const roleList = (roles ?? []).map((row: { role: string }) => row.role);
+    const caller = await loadCaller(db, userId);
     return {
-      profile,
-      roles: roleList,
-      permissions,
-      isOwner: roleList.includes("owner"),
-      isStaff: roleList.includes("staff"),
+      profile: caller.profile,
+      roles: caller.roles,
+      permissions: caller.perms,
+      isOwner: caller.isOwner,
+      isStaff: caller.isStaff,
+      isPremium: caller.isPremium,
+      loaderName: caller.profile?.loader_name || "Babis Premium",
+      premiumExpiresAt: caller.profile?.premium_expires_at ?? null,
     };
   });
 
@@ -99,70 +121,76 @@ export const getDashboardData = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
+    const caller = await loadCaller(db, userId);
+    const isTeam = caller.isTeam;
 
-    const { data: roles, error: rolesError } = await db
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (rolesError) throw new Error(rolesError.message);
-    const roleList = (roles ?? []).map((row: { role: string }) => row.role);
+    // Scripts scope: team sees all, regular user sees own.
+    const scriptsQuery = db.from("scripts").select("*").order("updated_at", { ascending: false });
+    const [scriptsResult] = await Promise.all([
+      isTeam ? scriptsQuery : scriptsQuery.eq("owner_id", userId),
+    ]);
+    if (scriptsResult.error) throw new Error(scriptsResult.error.message);
+    const scripts = scriptsResult.data ?? [];
+    const scriptIds = scripts.map((s: any) => s.id);
 
-    const { data: permissions, error: permissionError } = await db
-      .from("staff_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (permissionError) throw new Error(permissionError.message);
+    const scriptFilter = <T extends { script_id?: string | null }>(q: any) =>
+      isTeam ? q : (scriptIds.length ? q.in("script_id", scriptIds) : { data: [], error: null });
 
-    const canAccess =
-      roleList.includes("owner") ||
-      roleList.includes("staff") ||
-      Boolean(
-        permissions?.can_manage_scripts ||
-          permissions?.can_manage_licenses ||
-          permissions?.can_manage_bans ||
-          permissions?.can_manage_users ||
-          permissions?.can_view_logs,
-      );
-    if (!canAccess) throw new Error("Your account does not have dashboard access yet.");
+    const [licensesResult, bansResult, sessionsResult, eventsResult, historyResult] = await Promise.all([
+      scriptFilter(db.from("script_licenses").select("*").order("created_at", { ascending: false })),
+      scriptFilter(db.from("player_bans").select("*").order("created_at", { ascending: false })),
+      scriptFilter(db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200)),
+      scriptFilter(db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150)),
+      scriptFilter(db.from("player_history").select("*").order("last_seen_at", { ascending: false }).limit(500)),
+    ]);
 
-    const [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult] =
-      await Promise.all([
-        db.from("profiles").select("*").eq("id", userId).maybeSingle(),
-        db.from("scripts").select("*").order("updated_at", { ascending: false }),
-        db.from("script_licenses").select("*").order("created_at", { ascending: false }),
-        db.from("player_bans").select("*").order("created_at", { ascending: false }),
-        db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200),
-        db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150),
-        db.from("profiles").select("id,username,display_name,account_status,created_at,updated_at").order("created_at", { ascending: false }),
-        db.from("user_roles").select("*").order("created_at", { ascending: false }),
-        db.from("staff_permissions").select("*"),
-      ]);
-
-    for (const result of [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult]) {
-      if (result.error) throw new Error(result.error.message);
+    for (const r of [licensesResult, bansResult, sessionsResult, eventsResult, historyResult]) {
+      if (r?.error) throw new Error(r.error.message);
     }
 
-    const { data: history, error: historyError } = await db
-      .from("player_history")
-      .select("*")
-      .order("last_seen_at", { ascending: false })
-      .limit(500);
-    if (historyError) throw new Error(historyError.message);
+    // Owner-only global views
+    let users: any[] = [];
+    let userRoles: any[] = [];
+    let staffPermissions: any[] = [];
+    let premiumKeys: any[] = [];
+    let allLiveSessions: any[] = [];
+    if (caller.isOwner) {
+      const [u, ur, sp, pk, als] = await Promise.all([
+        db.from("profiles").select("id,username,display_name,account_status,premium_expires_at,loader_name,created_at,updated_at").order("created_at", { ascending: false }),
+        db.from("user_roles").select("*"),
+        db.from("staff_permissions").select("*"),
+        db.from("premium_licenses").select("*").order("created_at", { ascending: false }),
+        db.from("script_usage_sessions").select("*").eq("status", "active").order("last_seen_at", { ascending: false }).limit(500),
+      ]);
+      for (const r of [u, ur, sp, pk, als]) if (r.error) throw new Error(r.error.message);
+      users = u.data ?? [];
+      userRoles = ur.data ?? [];
+      staffPermissions = sp.data ?? [];
+      premiumKeys = pk.data ?? [];
+      allLiveSessions = als.data ?? [];
+    }
 
     return {
-      profile: profileResult.data,
-      roles: roleList,
-      permissions,
-      scripts: scriptsResult.data ?? [],
+      profile: caller.profile,
+      roles: caller.roles,
+      permissions: caller.perms,
+      isOwner: caller.isOwner,
+      isStaff: caller.isStaff,
+      isPremium: caller.isPremium,
+      loaderName: caller.profile?.loader_name || "Babis Premium",
+      premiumExpiresAt: caller.profile?.premium_expires_at ?? null,
+      scriptLimit: caller.isTeam || caller.isPremium ? null : FREE_SCRIPT_LIMIT,
+      scripts,
       licenses: licensesResult.data ?? [],
       bans: bansResult.data ?? [],
       sessions: sessionsResult.data ?? [],
       events: eventsResult.data ?? [],
-      users: usersResult.data ?? [],
-      userRoles: rolesResult.data ?? [],
-      staffPermissions: staffResult.data ?? [],
-      history: history ?? [],
+      users,
+      userRoles,
+      staffPermissions,
+      history: historyResult.data ?? [],
+      premiumKeys,
+      allLiveSessions,
     };
   });
 
@@ -180,24 +208,15 @@ export const dashboardAction = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
+    const caller = await loadCaller(db, userId);
+    const roleList = caller.roles;
+    const permissions = caller.perms;
 
-    const { data: roleRows, error: rolesError } = await db
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (rolesError) throw new Error(rolesError.message);
-    const roleList = (roleRows ?? []).map((row: { role: string }) => row.role);
-
-    const { data: permissions, error: permissionError } = await db
-      .from("staff_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (permissionError) throw new Error(permissionError.message);
-
+    // "has" governs Babis-team permissions (owner/staff with a perm bit).
+    // Regular users can act on their OWN resources without these perms.
     const has = (permission: string) => {
-      if (roleList.includes("owner")) return true;
-      if (!roleList.includes("staff")) return false;
+      if (caller.isOwner) return true;
+      if (!caller.isStaff) return false;
       if (permission === "scripts") return Boolean(permissions?.can_manage_scripts);
       if (permission === "licenses") return Boolean(permissions?.can_manage_licenses);
       if (permission === "bans") return Boolean(permissions?.can_manage_bans);
@@ -205,9 +224,26 @@ export const dashboardAction = createServerFn({ method: "POST" })
       if (permission === "logs") return Boolean(permissions?.can_view_logs);
       return false;
     };
+    const requirePremium = () => {
+      if (!caller.isTeam && !caller.isPremium) {
+        throw new Error("Premium required. Enter a valid premium license key on the Upgrade tab.");
+      }
+    };
+    // Assert the caller can touch this script row (team OR own it).
+    const assertScriptAccess = async (scriptId: string) => {
+      if (caller.isTeam) return;
+      const { data: s, error } = await db.from("scripts").select("owner_id").eq("id", scriptId).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!s || s.owner_id !== userId) throw new Error("You do not own this script.");
+    };
+    const assertLicenseAccess = async (licenseId: string) => {
+      if (caller.isTeam) return;
+      const { data: lic, error } = await db.from("script_licenses").select("script_id, scripts!inner(owner_id)").eq("id", licenseId).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!lic || lic.scripts?.owner_id !== userId) throw new Error("You do not own this license.");
+    };
 
     if (data.type === "saveScript") {
-      if (!has("scripts")) throw new Error("Missing script management permission.");
       const payload = z
         .object({
           id: z.string().uuid().optional().nullable(),
@@ -218,6 +254,13 @@ export const dashboardAction = createServerFn({ method: "POST" })
           isActive: z.boolean(),
         })
         .parse(data.payload);
+      // Team members can manage any script if they have the perm.
+      // Regular users can only manage their OWN scripts.
+      if (!caller.isTeam) {
+        if (payload.id) await assertScriptAccess(payload.id);
+      } else if (!has("scripts")) {
+        throw new Error("Missing script management permission.");
+      }
 
       if (payload.id) {
         const { data: updated, error } = await db
@@ -235,6 +278,18 @@ export const dashboardAction = createServerFn({ method: "POST" })
           .single();
         if (error) throw new Error(error.message);
         return { ok: true, script: updated };
+      }
+
+      // Enforce 10-script cap for non-team, non-premium users.
+      if (!caller.isTeam && !caller.isPremium) {
+        const { count, error: countError } = await db
+          .from("scripts")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", userId);
+        if (countError) throw new Error(countError.message);
+        if ((count ?? 0) >= FREE_SCRIPT_LIMIT) {
+          throw new Error(`Free plan limited to ${FREE_SCRIPT_LIMIT} scripts. Upgrade to premium for unlimited scripts, or delete one first.`);
+        }
       }
 
       const { data: created, error } = await db
@@ -255,15 +310,15 @@ export const dashboardAction = createServerFn({ method: "POST" })
     }
 
     if (data.type === "deleteScript") {
-      if (!has("scripts")) throw new Error("Missing script management permission.");
       const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      if (!caller.isTeam) await assertScriptAccess(payload.id);
+      else if (!has("scripts")) throw new Error("Missing script management permission.");
       const { error } = await db.from("scripts").delete().eq("id", payload.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
 
     if (data.type === "createLicense") {
-      if (!has("licenses")) throw new Error("Missing license management permission.");
       const payload = z
         .object({
           scriptId: z.string().uuid(),
@@ -271,7 +326,9 @@ export const dashboardAction = createServerFn({ method: "POST" })
           durationMinutes: z.number().int().positive().nullable().optional(),
         })
         .parse(data.payload);
-      const key = `BABIS-${crypto.randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase()}`;
+      if (!caller.isTeam) await assertScriptAccess(payload.scriptId);
+      else if (!has("licenses")) throw new Error("Missing license management permission.");
+      const key = genKey("BABIS");
       const expiresAt = payload.durationMinutes
         ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
         : null;
@@ -292,7 +349,6 @@ export const dashboardAction = createServerFn({ method: "POST" })
     }
 
     if (data.type === "setLicenseStatus") {
-      if (!has("licenses")) throw new Error("Missing license management permission.");
       const payload = z
         .object({
           id: z.string().uuid(),
@@ -300,6 +356,8 @@ export const dashboardAction = createServerFn({ method: "POST" })
           reason: z.string().trim().max(300).optional().default(""),
         })
         .parse(data.payload);
+      if (!caller.isTeam) await assertLicenseAccess(payload.id);
+      else if (!has("licenses")) throw new Error("Missing license management permission.");
       const update =
         payload.status === "revoked" || payload.status === "banned"
           ? { status: payload.status, revoked_by: userId, revoked_at: new Date().toISOString(), revoke_reason: payload.reason }
@@ -310,15 +368,15 @@ export const dashboardAction = createServerFn({ method: "POST" })
     }
 
     if (data.type === "deleteLicense") {
-      if (!has("licenses")) throw new Error("Missing license management permission.");
       const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      if (!caller.isTeam) await assertLicenseAccess(payload.id);
+      else if (!has("licenses")) throw new Error("Missing license management permission.");
       const { error } = await db.from("script_licenses").delete().eq("id", payload.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
 
     if (data.type === "addBan") {
-      if (!has("bans")) throw new Error("Missing ban management permission.");
       const payload = z
         .object({
           scope: z.enum(["script", "global"]),
@@ -332,6 +390,14 @@ export const dashboardAction = createServerFn({ method: "POST" })
           durationMinutes: z.number().int().positive().nullable().optional(),
         })
         .parse(data.payload);
+      // IP ban is premium-gated for regular users.
+      if (!caller.isTeam) {
+        if (payload.includeIp) requirePremium();
+        if (payload.scope === "script" && payload.scriptId) await assertScriptAccess(payload.scriptId);
+        if (payload.scope === "global") throw new Error("Global bans are for Babis team only. Choose 'Specific script'.");
+      } else if (!has("bans")) {
+        throw new Error("Missing ban management permission.");
+      }
       const expiresAt = payload.durationMinutes
         ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
         : null;
@@ -351,10 +417,18 @@ export const dashboardAction = createServerFn({ method: "POST" })
     }
 
     if (data.type === "sendMessage") {
-      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
       const payload = z
         .object({ id: z.string().uuid(), message: z.string().trim().min(1).max(300) })
         .parse(data.payload);
+      if (!caller.isTeam) {
+        requirePremium();
+        // ensure session belongs to a script the user owns
+        const { data: sess } = await db.from("script_usage_sessions").select("script_id").eq("id", payload.id).maybeSingle();
+        if (!sess) throw new Error("Session not found.");
+        await assertScriptAccess(sess.script_id);
+      } else if (!has("bans") && !has("logs")) {
+        throw new Error("Missing permission.");
+      }
       const { data: session, error } = await db
         .from("script_usage_sessions")
         .update({ pending_message: payload.message })
@@ -374,26 +448,45 @@ export const dashboardAction = createServerFn({ method: "POST" })
     }
 
     if (data.type === "deleteHistory") {
-      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
       const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      if (!caller.isTeam) {
+        const { data: row } = await db.from("player_history").select("last_script_id").eq("id", payload.id).maybeSingle();
+        if (!row?.last_script_id) throw new Error("Not found.");
+        await assertScriptAccess(row.last_script_id);
+      } else if (!has("bans") && !has("logs")) {
+        throw new Error("Missing permission.");
+      }
       const { error } = await db.from("player_history").delete().eq("id", payload.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
 
     if (data.type === "setBanActive") {
-      if (!has("bans")) throw new Error("Missing ban management permission.");
       const payload = z.object({ id: z.string().uuid(), isActive: z.boolean() }).parse(data.payload);
+      if (!caller.isTeam) {
+        const { data: b } = await db.from("player_bans").select("script_id").eq("id", payload.id).maybeSingle();
+        if (!b?.script_id) throw new Error("Not found.");
+        await assertScriptAccess(b.script_id);
+      } else if (!has("bans")) {
+        throw new Error("Missing ban management permission.");
+      }
       const { error } = await db.from("player_bans").update({ is_active: payload.isActive }).eq("id", payload.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
 
     if (data.type === "kickSession") {
-      if (!has("bans")) throw new Error("Missing ban management permission.");
       const payload = z
         .object({ id: z.string().uuid(), reason: z.string().trim().min(1).max(300) })
         .parse(data.payload);
+      if (!caller.isTeam) {
+        requirePremium();
+        const { data: sess } = await db.from("script_usage_sessions").select("script_id").eq("id", payload.id).maybeSingle();
+        if (!sess) throw new Error("Session not found.");
+        await assertScriptAccess(sess.script_id);
+      } else if (!has("bans")) {
+        throw new Error("Missing ban management permission.");
+      }
       const { data: session, error } = await db
         .from("script_usage_sessions")
         .update({ status: "kicked", kick_reason: payload.reason, ended_at: new Date().toISOString() })
@@ -411,6 +504,132 @@ export const dashboardAction = createServerFn({ method: "POST" })
         message: payload.reason,
       });
       return { ok: true };
+    }
+
+    // ---- new actions -----------------------------------------------------
+
+    if (data.type === "setLoaderName") {
+      requirePremium();
+      const payload = z
+        .object({ name: z.string().trim().min(2).max(40) })
+        .parse(data.payload);
+      const { error } = await db.from("profiles").update({ loader_name: payload.name }).eq("id", userId);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "redeemPremium") {
+      const payload = z.object({ key: z.string().trim().min(4).max(120) }).parse(data.payload);
+      const { data: lic, error } = await db
+        .from("premium_licenses")
+        .select("*")
+        .eq("license_key", payload.key)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!lic) throw new Error("Invalid license key.");
+      if (lic.status !== "active") throw new Error("This license key has already been used or was revoked.");
+
+      // Extend from now OR from current expiry if still active.
+      const base = caller.isPremium ? new Date(caller.profile.premium_expires_at).getTime() : Date.now();
+      const newExpiry = new Date(base + lic.duration_minutes * 60_000).toISOString();
+      const [{ error: profErr }, { error: licErr }] = await Promise.all([
+        db.from("profiles").update({ premium_expires_at: newExpiry }).eq("id", userId),
+        db.from("premium_licenses").update({ status: "redeemed", redeemed_by: userId, redeemed_at: new Date().toISOString() }).eq("id", lic.id),
+      ]);
+      if (profErr) throw new Error(profErr.message);
+      if (licErr) throw new Error(licErr.message);
+      return { ok: true, premiumExpiresAt: newExpiry };
+    }
+
+    if (data.type === "createPremiumKey") {
+      if (!has("users")) throw new Error("Only Babis team with user permission can generate premium keys.");
+      const payload = z
+        .object({
+          label: z.string().trim().max(100).default(""),
+          durationMinutes: z.number().int().positive().max(60 * 24 * 365 * 10),
+        })
+        .parse(data.payload);
+      const key = genKey("BABIS-PRE");
+      const { data: created, error } = await db
+        .from("premium_licenses")
+        .insert({
+          license_key: key,
+          label: payload.label,
+          duration_minutes: payload.durationMinutes,
+          created_by: userId,
+        })
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { ok: true, key: created };
+    }
+
+    if (data.type === "deletePremiumKey") {
+      if (!has("users")) throw new Error("Missing permission.");
+      const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      const { error } = await db.from("premium_licenses").delete().eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "grantPremium") {
+      if (!caller.isOwner) throw new Error("Owner only.");
+      const payload = z
+        .object({ userId: z.string().uuid(), durationMinutes: z.number().int().positive().nullable() })
+        .parse(data.payload);
+      const newExpiry = payload.durationMinutes
+        ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
+        : null;
+      const { error } = await db.from("profiles").update({ premium_expires_at: newExpiry }).eq("id", payload.userId);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "createStaffAccount") {
+      if (!caller.isOwner) throw new Error("Owner only.");
+      const payload = z
+        .object({
+          username: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_]+$/),
+          password: z.string().min(6).max(72),
+          canManageScripts: z.boolean(),
+          canManageLicenses: z.boolean(),
+          canManageBans: z.boolean(),
+          canManageUsers: z.boolean(),
+          canViewLogs: z.boolean(),
+        })
+        .parse(data.payload);
+      const email = `${payload.username.toLowerCase()}@babis.local`;
+      const { data: created, error: authError } = await db.auth.admin.createUser({
+        email,
+        password: payload.password,
+        email_confirm: true,
+        user_metadata: { username: payload.username },
+      });
+      if (authError) throw new Error(authError.message);
+      const newId = created.user?.id;
+      if (!newId) throw new Error("Failed to create account.");
+      const { error: profileError } = await db.from("profiles").upsert({
+        id: newId,
+        username: payload.username,
+        display_name: payload.username,
+        account_status: "active",
+      });
+      if (profileError) throw new Error(profileError.message);
+      const { error: roleError } = await db.from("user_roles").upsert(
+        { user_id: newId, role: "staff" },
+        { onConflict: "user_id,role" },
+      );
+      if (roleError) throw new Error(roleError.message);
+      const { error: permError } = await db.from("staff_permissions").upsert({
+        user_id: newId,
+        can_manage_scripts: payload.canManageScripts,
+        can_manage_licenses: payload.canManageLicenses,
+        can_manage_bans: payload.canManageBans,
+        can_manage_users: payload.canManageUsers,
+        can_view_logs: payload.canViewLogs,
+      });
+      if (permError) throw new Error(permError.message);
+      return { ok: true, userId: newId };
     }
 
     if (data.type === "upsertStaff") {

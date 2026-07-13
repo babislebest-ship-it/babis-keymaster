@@ -139,12 +139,53 @@ export type Database = {
           },
         ]
       }
+      premium_licenses: {
+        Row: {
+          created_at: string
+          created_by: string
+          duration_minutes: number
+          id: string
+          label: string
+          license_key: string
+          redeemed_at: string | null
+          redeemed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          duration_minutes: number
+          id?: string
+          label?: string
+          license_key: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          duration_minutes?: number
+          id?: string
+          label?: string
+          license_key?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_status: string
           created_at: string
           display_name: string | null
           id: string
+          loader_name: string | null
+          premium_expires_at: string | null
           updated_at: string
           username: string
         }
@@ -153,6 +194,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          loader_name?: string | null
+          premium_expires_at?: string | null
           updated_at?: string
           username: string
         }
@@ -161,6 +204,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          loader_name?: string | null
+          premium_expires_at?: string | null
           updated_at?: string
           username?: string
         }
