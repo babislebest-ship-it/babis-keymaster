@@ -315,9 +315,30 @@ function Dashboard() {
             </div>
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(false)}><X /></Button>
           </div>
-          <Button className="mb-4 w-full" onClick={() => { setScriptForm(emptyScript); setMenuOpen(false); }}>
-            <Plus /> New script
-          </Button>
+          <div className="mb-4 space-y-2">
+            <Button
+              className="w-full"
+              disabled={!canAddScript}
+              onClick={() => {
+                if (!canAddScript) { toast.error("Free plan limit reached", { description: "Delete a script or upgrade to premium." }); return; }
+                setScriptForm(emptyScript); setMenuOpen(false);
+              }}
+            >
+              <Plus /> New script
+            </Button>
+            {scriptLimit !== null && (
+              <div className="rounded-md border border-sidebar-border bg-sidebar-accent px-3 py-2 text-xs text-sidebar-accent-foreground">
+                Free plan · {scripts.length}/{scriptLimit} scripts
+                {!canAddScript && <div className="mt-1 opacity-80">Upgrade for unlimited.</div>}
+              </div>
+            )}
+            {isPremium && !isTeam && (
+              <div className="rounded-md border border-primary bg-primary/10 px-3 py-2 text-xs text-primary">
+                <Crown className="mr-1 inline size-3" /> Premium active
+                {premiumExpires && <span className="ml-1 opacity-80">· until {new Date(premiumExpires).toLocaleDateString()}</span>}
+              </div>
+            )}
+          </div>
           <div className="space-y-2">
             {scripts.map((script) => (
               <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
