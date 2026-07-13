@@ -102,34 +102,16 @@ export const getAccountState = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userId = context.userId;
-
-    const { data: profile, error: profileError } = await db
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (profileError) throw new Error(profileError.message);
-
-    const { data: roles, error: rolesError } = await db
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (rolesError) throw new Error(rolesError.message);
-
-    const { data: permissions, error: permissionError } = await db
-      .from("staff_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (permissionError) throw new Error(permissionError.message);
-
-    const roleList = (roles ?? []).map((row: { role: string }) => row.role);
+    const caller = await loadCaller(db, userId);
     return {
-      profile,
-      roles: roleList,
-      permissions,
-      isOwner: roleList.includes("owner"),
-      isStaff: roleList.includes("staff"),
+      profile: caller.profile,
+      roles: caller.roles,
+      permissions: caller.perms,
+      isOwner: caller.isOwner,
+      isStaff: caller.isStaff,
+      isPremium: caller.isPremium,
+      loaderName: caller.profile?.loader_name || "Babis Premium",
+      premiumExpiresAt: caller.profile?.premium_expires_at ?? null,
     };
   });
 
