@@ -464,13 +464,17 @@ function Dashboard() {
                           {joinUrl && (
                             <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
                           )}
-                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } })}>Kick</Button>
+                          <Button size="sm" variant="outline" onClick={() => { if (!gatePremium("Kick")) return; action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } }); }}>
+                            {!isTeam && !isPremium && <Lock className="size-3" />} Kick
+                          </Button>
                           <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "script", scriptId: session.script_id, playerUserId: session.player_user_id, playerName: session.player_name || "unknown", licenseId: session.license_id, includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <Input placeholder="Message to player…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [session.id]: e.target.value })} />
-                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "sendMessage", payload: { id: session.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [session.id]: "" }); }}><MessageSquare className="size-4" />Send</Button>
+                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { if (!gatePremium("Send message")) return; action.mutate({ type: "sendMessage", payload: { id: session.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [session.id]: "" }); }}>
+                          {!isTeam && !isPremium && <Lock className="size-3" />}<MessageSquare className="size-4" />Send
+                        </Button>
                       </div>
                       {session.pending_message && <div className="text-xs text-muted-foreground">Pending: {session.pending_message}</div>}
                     </div>
@@ -518,7 +522,10 @@ function Dashboard() {
                     </SelectContent>
                   </Select>
                 </label>
-                <label className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Include IP ban<Switch checked={banForm.includeIp} onCheckedChange={(v) => setBanForm({ ...banForm, includeIp: v })} /></label>
+                <label className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">
+                  <span className="flex items-center gap-2">Include IP ban {!isTeam && !isPremium && <Lock className="size-3 text-muted-foreground" />}</span>
+                  <Switch checked={banForm.includeIp} onCheckedChange={(v) => { if (v && !gatePremium("IP ban")) return; setBanForm({ ...banForm, includeIp: v }); }} />
+                </label>
                 <label className="mt-3 grid gap-1 text-sm">Reason<Textarea value={banForm.reason} onChange={(e) => setBanForm({ ...banForm, reason: e.target.value })} className="min-h-20" /></label>
                 <Button
                   className="mt-4 w-full"
@@ -574,9 +581,111 @@ function Dashboard() {
               </div>
             </TabsContent>
 
+            <TabsContent value="upgrade" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="app-panel rounded-lg p-5 sm:p-6">
+                <div className="mb-4 flex items-center gap-2 text-primary"><Crown /> <h2 className="text-xl font-semibold">Unlock Babis Premium</h2></div>
+                <p className="text-sm text-muted-foreground">Take full control of your Roblox loaders with the tools the pros use.</p>
+                <ul className="mt-4 grid gap-2 text-sm">
+                  {[
+                    ["Unlimited scripts", "Save and rotate as many Luau loaders as you need — no 10-script cap."],
+                    ["Live in-game messages", "Send instant notifications straight to players running your loader."],
+                    ["Remote kick", "Boot troublemakers out of the experience in one click."],
+                    ["IP-level bans", "Block persistent abusers by hashed IP, not just username."],
+                    ["Custom loader branding", "Replace the panel title with your own community name."],
+                  ].map(([title, body]) => (
+                    <li key={title} className="rounded-md border border-border bg-muted p-3">
+                      <div className="font-semibold text-foreground">{title}</div>
+                      <div className="text-xs text-muted-foreground">{body}</div>
+                    </li>
+                  ))}
+                </ul>
+                <a href="https://discord.gg/tRA3yStbvq" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-primary underline underline-offset-4">
+                  <ExternalLink className="size-4" /> Join our Discord to get a license
+                </a>
+              </div>
+              <div className="app-panel rounded-lg p-5">
+                <h3 className="text-lg font-semibold">Redeem license key</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Paste the key you received from the Babis team.</p>
+                <Input className="mt-3 font-mono" value={premiumKeyInput} onChange={(e) => setPremiumKeyInput(e.target.value)} placeholder="BABIS-PRE-XXXXXXXXXX" />
+                <Button
+                  className="mt-3 w-full"
+                  disabled={!premiumKeyInput.trim() || action.isPending}
+                  onClick={() => {
+                    action.mutate(
+                      { type: "redeemPremium", payload: { key: premiumKeyInput.trim() } },
+                      { onSuccess: () => { setPremiumKeyInput(""); queryClient.invalidateQueries({ queryKey: ["account"] }); } },
+                    );
+                  }}
+                ><KeyRound /> Activate premium</Button>
+                {isPremium && premiumExpires && <div className="mt-3 rounded-md border border-primary bg-primary/10 p-3 text-xs text-primary">Active until {new Date(premiumExpires).toLocaleString()}</div>}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="brand" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="app-panel rounded-lg p-5">
+                <h2 className="text-lg font-semibold">Loader panel name</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Shown as the title on the in-game loader panel.</p>
+                <Input className="mt-3" value={loaderNameDraft} onChange={(e) => setLoaderNameDraft(e.target.value)} maxLength={40} placeholder="Your community name" />
+                <Button className="mt-3 w-full" disabled={!loaderNameDraft.trim() || action.isPending} onClick={() => action.mutate({ type: "setLoaderName", payload: { name: loaderNameDraft.trim() } })}><Save /> Save name</Button>
+              </div>
+              <div className="app-panel rounded-lg p-5 text-sm text-muted-foreground">Current: <span className="font-semibold text-foreground">{currentLoaderName}</span></div>
+            </TabsContent>
+
             <TabsContent value="staff" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
+              {isOwner && (
+                <div className="app-panel rounded-lg p-4 sm:p-5 xl:col-span-2">
+                  <h2 className="text-lg font-semibold">Create staff account</h2>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm">Username<Input value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} placeholder="staff_alex" /></label>
+                    <label className="grid gap-1 text-sm">Password<Input type="password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} placeholder="min 6 chars" /></label>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    {Object.entries(staffPermissions).map(([key, value]) => (
+                      <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-2 text-xs">
+                        <span className="capitalize">{key.replace(/([A-Z])/g, " $1").replace(/^can /, "")}</span>
+                        <Switch checked={value} onCheckedChange={(v) => setStaffPermissions({ ...staffPermissions, [key]: v })} />
+                      </label>
+                    ))}
+                  </div>
+                  <Button className="mt-3" disabled={!newStaff.username.trim() || newStaff.password.length < 6} onClick={() => action.mutate({ type: "createStaffAccount", payload: { ...newStaff, ...staffPermissions } }, { onSuccess: () => setNewStaff({ username: "", password: "" }) })}><UserCog /> Create account</Button>
+                </div>
+              )}
+              {isOwner && (
+                <div className="app-panel rounded-lg p-4 sm:p-5 xl:col-span-2">
+                  <h2 className="text-lg font-semibold">Premium license keys</h2>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]">
+                    <Input value={premiumKeyLabel} onChange={(e) => setPremiumKeyLabel(e.target.value)} placeholder="Label (e.g. customer name)" />
+                    <Select value={premiumKeyDuration} onValueChange={setPremiumKeyDuration}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="60">1 hour</SelectItem>
+                        <SelectItem value="1440">1 day</SelectItem>
+                        <SelectItem value="10080">7 days</SelectItem>
+                        <SelectItem value="43200">30 days</SelectItem>
+                        <SelectItem value="525600">1 year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button disabled={!can.users} onClick={() => action.mutate({ type: "createPremiumKey", payload: { label: premiumKeyLabel, durationMinutes: Number(premiumKeyDuration) } }, { onSuccess: () => setPremiumKeyLabel("") })}><Plus /> Generate</Button>
+                  </div>
+                  <div className="mt-3 divide-y divide-border rounded-md border border-border">
+                    {premiumKeys.length === 0 && <div className="p-4 text-xs text-muted-foreground">No premium keys yet.</div>}
+                    {premiumKeys.map((k: any) => (
+                      <div key={k.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                        <div className="min-w-0">
+                          <div className="mono-box font-mono text-xs">{k.license_key}</div>
+                          <div className="text-xs text-muted-foreground">{k.label || "Untitled"} · {Math.round(k.duration_minutes / 60)}h · {k.status}</div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => copyText("Premium key", k.license_key)}><Copy />Copy</Button>
+                          <Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this premium key?")) return; action.mutate({ type: "deletePremiumKey", payload: { id: k.id } }); }}><Trash2 /></Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Add staff permissions</h2>
+                <h2 className="text-lg font-semibold">Promote existing user</h2>
                 <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="Existing account username" /></label>
                 <div className="mt-4 grid gap-2">{Object.entries(staffPermissions).map(([key, value]) => <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm"><span>{key.replace(/([A-Z])/g, " $1")}</span><Switch checked={value} onCheckedChange={(checked) => setStaffPermissions({ ...staffPermissions, [key]: checked })} /></label>)}</div>
                 <Button className="mt-4 w-full" disabled={!can.users} onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}><UserCog /> Save staff</Button>
