@@ -208,7 +208,10 @@ function Dashboard() {
   const isLive = (session: SessionRow) =>
     session.status === "active" && now - new Date(session.last_seen_at).getTime() < 45_000;
   const scriptSessions = sessions.filter((session) => session.script_id === selectedScriptId);
-  const liveSessions = sessions.filter(isLive);
+  // Owner sees ALL live sessions globally; everyone else sees only their own.
+  const liveSessions = isOwner
+    ? allLiveSessions.filter(isLive)
+    : sessions.filter(isLive);
   const scriptNameById = (id: string) => scripts.find((s) => s.id === id)?.name ?? "—";
 
   useEffect(() => {
