@@ -126,13 +126,28 @@ export const getDashboardData = createServerFn({ method: "GET" })
       );
     if (!canAccess) throw new Error("Your account does not have dashboard access yet.");
 
+    // Auto-end sessions with no heartbeat for >45s so owners can't act on
+    // players who stopped running the script (or relaunched without executing).
+    const staleCutoff = new Date(Date.now() - 45_000).toISOString();
+    await db
+      .from("script_usage_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .eq("status", "active")
+      .lt("last_seen_at", staleCutoff);
+
     const [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult] =
       await Promise.all([
         db.from("profiles").select("*").eq("id", userId).maybeSingle(),
         db.from("scripts").select("*").order("updated_at", { ascending: false }),
         db.from("script_licenses").select("*").order("created_at", { ascending: false }),
         db.from("player_bans").select("*").order("created_at", { ascending: false }),
-        db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200),
+        db
+          .from("script_usage_sessions")
+          .select("*")
+          .eq("status", "active")
+          .gte("last_seen_at", staleCutoff)
+          .order("last_seen_at", { ascending: false })
+          .limit(200),
         db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150),
         db.from("profiles").select("id,username,display_name,account_status,created_at,updated_at").order("created_at", { ascending: false }),
         db.from("user_roles").select("*").order("created_at", { ascending: false }),
@@ -448,6 +463,52 @@ export const dashboardAction = createServerFn({ method: "POST" })
       });
       if (staffError) throw new Error(staffError.message);
       return { ok: true };
+    }
+
+    if (data.type === "createStaffAccount") {
+      if (!roleList.includes("owner") && !has("users")) throw new Error("Missing user management permission.");
+      const payload = z
+        .object({
+          username: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_]+$/),
+          password: z.string().min(6).max(72),
+          canManageScripts: z.boolean(),
+          canManageLicenses: z.boolean(),
+          canManageBans: z.boolean(),
+          canManageUsers: z.boolean(),
+          canViewLogs: z.boolean(),
+        })
+        .parse(data.payload);
+      const email = `${payload.username.toLowerCase()}@babis.local`;
+      const { data: created, error: createError } = await db.auth.admin.createUser({
+        email,
+        password: payload.password,
+        email_confirm: true,
+        user_metadata: { username: payload.username },
+      });
+      if (createError) throw new Error(createError.message);
+      const targetUserId = created.user.id;
+      const { error: profileError } = await db.from("profiles").upsert({
+        id: targetUserId,
+        username: payload.username,
+        display_name: payload.username,
+        account_status: "active",
+      });
+      if (profileError) throw new Error(profileError.message);
+      const { error: roleError } = await db.from("user_roles").upsert(
+        { user_id: targetUserId, role: "staff" },
+        { onConflict: "user_id,role" },
+      );
+      if (roleError) throw new Error(roleError.message);
+      const { error: staffError } = await db.from("staff_permissions").upsert({
+        user_id: targetUserId,
+        can_manage_scripts: payload.canManageScripts,
+        can_manage_licenses: payload.canManageLicenses,
+        can_manage_bans: payload.canManageBans,
+        can_manage_users: payload.canManageUsers,
+        can_view_logs: payload.canViewLogs,
+      });
+      if (staffError) throw new Error(staffError.message);
+      return { ok: true, email };
     }
 
     if (data.type === "removeStaff") {

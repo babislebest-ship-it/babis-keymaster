@@ -160,6 +160,7 @@ function Dashboard() {
   });
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [staffUsername, setStaffUsername] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
     canManageScripts: true,
     canManageLicenses: true,
@@ -377,7 +378,10 @@ function Dashboard() {
                   <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7rem_13rem] lg:items-center">
                     <div className="min-w-0"><div className="mono-box font-mono text-sm">{license.license_key}</div><div className="mt-1 text-xs text-muted-foreground">{license.label || "Untitled"} · {license.bound_player_name || "unused"}</div></div>
                     <div className="text-sm capitalize text-muted-foreground">{license.status}</div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button><Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this license key?")) return; action.mutate({ type: "deleteLicense", payload: { id: license.id } }); }}><Trash2 />Delete</Button></div>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="text-xs text-muted-foreground">{formatTimeLeft(license.expires_at)}</div>
+                      <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button><Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this license key?")) return; action.mutate({ type: "deleteLicense", payload: { id: license.id } }); }}><Trash2 />Delete</Button></div>
+                    </div>
                   </div>
                 )} />
               </div>
@@ -520,10 +524,28 @@ function Dashboard() {
 
             <TabsContent value="staff" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
               <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Add staff permissions</h2>
-                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="Existing account username" /></label>
+                <h2 className="text-lg font-semibold">Create staff account</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Owner creates the account directly — no signup needed.</p>
+                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="e.g. staff_alex" /></label>
+                <label className="mt-3 grid gap-1 text-sm">Password<Input type="password" value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} placeholder="Min. 6 characters" /></label>
                 <div className="mt-4 grid gap-2">{Object.entries(staffPermissions).map(([key, value]) => <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm"><span>{key.replace(/([A-Z])/g, " $1")}</span><Switch checked={value} onCheckedChange={(checked) => setStaffPermissions({ ...staffPermissions, [key]: checked })} /></label>)}</div>
-                <Button className="mt-4 w-full" disabled={!can.users} onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}><UserCog /> Save staff</Button>
+                <Button
+                  className="mt-4 w-full"
+                  disabled={!can.users || staffUsername.length < 3 || staffPassword.length < 6}
+                  onClick={() => {
+                    action.mutate(
+                      { type: "createStaffAccount", payload: { username: staffUsername, password: staffPassword, ...staffPermissions } },
+                      { onSuccess: () => { setStaffUsername(""); setStaffPassword(""); } },
+                    );
+                  }}
+                ><UserCog /> Create account</Button>
+                <Button
+                  className="mt-2 w-full"
+                  variant="outline"
+                  disabled={!can.users || staffUsername.length < 3}
+                  onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}
+                >Update existing user's permissions</Button>
+                <p className="mt-2 text-xs text-muted-foreground">Login email will be <code>username@babis.local</code>.</p>
               </div>
               <div className="app-panel overflow-hidden rounded-lg"><ResponsiveRows rows={data?.users ?? []} empty="No accounts yet." render={(user: any) => <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="font-semibold">{user.username}</div><div className="text-xs text-muted-foreground">{user.account_status}</div></div><Button variant="outline" size="sm" onClick={() => action.mutate({ type: "removeStaff", payload: { userId: user.id } })} disabled={!can.users}>Remove staff</Button></div>} /></div>
             </TabsContent>
@@ -541,4 +563,16 @@ function Metric({ label, value }: { label: string; value: number }) {
 function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; render: (row: any) => ReactNode }) {
   if (!rows.length) return <div className="p-6 text-sm text-muted-foreground">{empty}</div>;
   return <div className="divide-y divide-border">{rows.map((row) => <div key={row.id}>{render(row)}</div>)}</div>;
+}
+
+function formatTimeLeft(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return "Permanent";
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m left`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m left`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h left`;
 }
