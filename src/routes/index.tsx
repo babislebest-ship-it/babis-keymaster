@@ -546,3 +546,15 @@ function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; r
   if (!rows.length) return <div className="p-6 text-sm text-muted-foreground">{empty}</div>;
   return <div className="divide-y divide-border">{rows.map((row) => <div key={row.id}>{render(row)}</div>)}</div>;
 }
+
+function formatTimeLeft(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return "Permanent";
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m left`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m left`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h left`;
+}
