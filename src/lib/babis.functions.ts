@@ -93,6 +93,73 @@ export const getAccountState = createServerFn({ method: "GET" })
     };
   });
 
+export const refreshPresence = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const userId = context.userId;
+
+    const { data: roleRows } = await db.from("user_roles").select("role").eq("user_id", userId);
+    const roleList = (roleRows ?? []).map((r: { role: string }) => r.role);
+    const { data: perms } = await db.from("staff_permissions").select("*").eq("user_id", userId).maybeSingle();
+    const canAccess = roleList.includes("owner") || roleList.includes("staff") ||
+      Boolean(perms?.can_manage_bans || perms?.can_view_logs);
+    if (!canAccess) throw new Error("No permission.");
+
+    const { data: rows } = await db
+      .from("player_history")
+      .select("id,player_user_id")
+      .not("player_user_id", "is", null)
+      .limit(200);
+    const ids: number[] = [];
+    const idToRow = new Map<number, string>();
+    for (const row of rows ?? []) {
+      const n = Number(row.player_user_id);
+      if (Number.isFinite(n) && n > 0) {
+        ids.push(n);
+        idToRow.set(n, row.id);
+      }
+    }
+    if (!ids.length) return { ok: true, updated: 0 };
+
+    let updated = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      try {
+        const res = await fetch("https://presence.roblox.com/v1/presence/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds: batch }),
+        });
+        if (!res.ok) continue;
+        const json = (await res.json()) as { userPresences?: Array<Record<string, unknown>> };
+        const now = new Date().toISOString();
+        for (const p of json.userPresences ?? []) {
+          const uid = Number(p.userId);
+          const rowId = idToRow.get(uid);
+          if (!rowId) continue;
+          await db
+            .from("player_history")
+            .update({
+              presence_type: Number(p.userPresenceType ?? 0),
+              place_id: p.placeId != null ? String(p.placeId) : null,
+              job_id: p.gameId ? String(p.gameId) : null,
+              universe_id: p.universeId != null ? String(p.universeId) : null,
+              root_place_id: p.rootPlaceId != null ? String(p.rootPlaceId) : null,
+              presence_last_location: (p.lastLocation as string) || null,
+              presence_checked_at: now,
+            })
+            .eq("id", rowId);
+          updated += 1;
+        }
+      } catch {
+        // ignore network errors, best effort
+      }
+    }
+    return { ok: true, updated };
+  });
+
 export const getDashboardData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
