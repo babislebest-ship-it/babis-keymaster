@@ -160,6 +160,7 @@ function Dashboard() {
   });
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [staffUsername, setStaffUsername] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
     canManageScripts: true,
     canManageLicenses: true,
