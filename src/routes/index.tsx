@@ -32,7 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { dashboardAction, getAccountState, getDashboardData } from "@/lib/babis.functions";
+import { dashboardAction, getAccountState, getDashboardData, refreshPresence } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 // No head() here: the home route inherits title/description/og/twitter from
@@ -144,6 +144,7 @@ function Dashboard() {
   const getAccount = useServerFn(getAccountState);
   const getDashboard = useServerFn(getDashboardData);
   const runDashboardAction = useServerFn(dashboardAction);
+  const refreshPresenceFn = useServerFn(refreshPresence);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeScriptId, setActiveScriptId] = useState<string>("");
   const [scriptForm, setScriptForm] = useState(emptyScript);
@@ -177,6 +178,18 @@ function Dashboard() {
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
   });
+
+  // Poll Roblox presence every 20s so known players show up as live
+  // even when they haven't re-executed the script.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => refreshPresenceFn().catch(() => {}).finally(() => {
+      if (!cancelled) queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    });
+    tick();
+    const id = setInterval(tick, 20000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [refreshPresenceFn, queryClient]);
   const data = dashboard.data as any;
   const scripts: ScriptRow[] = data?.scripts ?? [];
   const licenses: LicenseRow[] = data?.licenses ?? [];
