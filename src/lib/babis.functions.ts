@@ -126,13 +126,28 @@ export const getDashboardData = createServerFn({ method: "GET" })
       );
     if (!canAccess) throw new Error("Your account does not have dashboard access yet.");
 
+    // Auto-end sessions with no heartbeat for >45s so owners can't act on
+    // players who stopped running the script (or relaunched without executing).
+    const staleCutoff = new Date(Date.now() - 45_000).toISOString();
+    await db
+      .from("script_usage_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .eq("status", "active")
+      .lt("last_seen_at", staleCutoff);
+
     const [profileResult, scriptsResult, licensesResult, bansResult, sessionsResult, eventsResult, usersResult, rolesResult, staffResult] =
       await Promise.all([
         db.from("profiles").select("*").eq("id", userId).maybeSingle(),
         db.from("scripts").select("*").order("updated_at", { ascending: false }),
         db.from("script_licenses").select("*").order("created_at", { ascending: false }),
         db.from("player_bans").select("*").order("created_at", { ascending: false }),
-        db.from("script_usage_sessions").select("*").order("last_seen_at", { ascending: false }).limit(200),
+        db
+          .from("script_usage_sessions")
+          .select("*")
+          .eq("status", "active")
+          .gte("last_seen_at", staleCutoff)
+          .order("last_seen_at", { ascending: false })
+          .limit(200),
         db.from("script_usage_events").select("*").order("created_at", { ascending: false }).limit(150),
         db.from("profiles").select("id,username,display_name,account_status,created_at,updated_at").order("created_at", { ascending: false }),
         db.from("user_roles").select("*").order("created_at", { ascending: false }),
