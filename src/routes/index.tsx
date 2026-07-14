@@ -438,6 +438,43 @@ function Dashboard() {
                   );
                 }} />
               </div>
+              <div className="app-panel overflow-hidden rounded-lg xl:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
+                  <h2 className="text-lg font-semibold">Known players in-game ({history.filter((h: any) => h.presence_type === 2).length})</h2>
+                  <div className="text-xs text-muted-foreground">Roblox presence · refreshed every 20s</div>
+                </div>
+                <ResponsiveRows rows={history.filter((h: any) => h.presence_type === 2)} empty="No known players in a game right now." render={(row: any) => {
+                  const draft = messageDrafts[`hist:${row.id}`] ?? "";
+                  const joinUrl = row.place_id && row.job_id
+                    ? `roblox://experiences/start?placeId=${row.place_id}&gameInstanceId=${row.job_id}`
+                    : "";
+                  return (
+                    <div className="grid gap-3 p-4">
+                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                        <div>
+                          <div className="font-semibold">{row.player_name || "Unknown"} <span className="ml-2 text-xs font-normal text-muted-foreground">UserId {row.player_user_id || "n/a"}</span></div>
+                          <div className="text-xs text-muted-foreground">{row.presence_last_location || "In a Roblox game"} · executor {row.executor_name || "unknown"}</div>
+                          <div className="text-xs text-muted-foreground">Place {row.place_id || "?"} · Job {row.job_id || "?"}</div>
+                          {(row.pending_message || row.pending_kick_reason) && (
+                            <div className="text-xs text-primary">Queued: {row.pending_kick_reason ? `kick (${row.pending_kick_reason})` : `message (${row.pending_message})`}</div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {joinUrl && (
+                            <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, kickReason: banReason } })}>Kick on next launch</Button>
+                          <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input placeholder="Queue message for next launch…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: e.target.value })} />
+                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: "" }); }}><MessageSquare className="size-4" />Queue</Button>
+                      </div>
+                    </div>
+                  );
+                }} />
+              </div>
               <div className="app-panel rounded-lg p-4 sm:p-5">
                 <h2 className="text-lg font-semibold">Default kick reason</h2>
                 <Textarea className="mt-3 min-h-24" value={banReason} onChange={(event) => setBanReason(event.target.value)} />
