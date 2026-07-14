@@ -450,6 +450,52 @@ export const dashboardAction = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    if (data.type === "createStaffAccount") {
+      if (!roleList.includes("owner") && !has("users")) throw new Error("Missing user management permission.");
+      const payload = z
+        .object({
+          username: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_]+$/),
+          password: z.string().min(6).max(72),
+          canManageScripts: z.boolean(),
+          canManageLicenses: z.boolean(),
+          canManageBans: z.boolean(),
+          canManageUsers: z.boolean(),
+          canViewLogs: z.boolean(),
+        })
+        .parse(data.payload);
+      const email = `${payload.username.toLowerCase()}@babis.local`;
+      const { data: created, error: createError } = await db.auth.admin.createUser({
+        email,
+        password: payload.password,
+        email_confirm: true,
+        user_metadata: { username: payload.username },
+      });
+      if (createError) throw new Error(createError.message);
+      const targetUserId = created.user.id;
+      const { error: profileError } = await db.from("profiles").upsert({
+        id: targetUserId,
+        username: payload.username,
+        display_name: payload.username,
+        account_status: "active",
+      });
+      if (profileError) throw new Error(profileError.message);
+      const { error: roleError } = await db.from("user_roles").upsert(
+        { user_id: targetUserId, role: "staff" },
+        { onConflict: "user_id,role" },
+      );
+      if (roleError) throw new Error(roleError.message);
+      const { error: staffError } = await db.from("staff_permissions").upsert({
+        user_id: targetUserId,
+        can_manage_scripts: payload.canManageScripts,
+        can_manage_licenses: payload.canManageLicenses,
+        can_manage_bans: payload.canManageBans,
+        can_manage_users: payload.canManageUsers,
+        can_view_logs: payload.canViewLogs,
+      });
+      if (staffError) throw new Error(staffError.message);
+      return { ok: true, email };
+    }
+
     if (data.type === "removeStaff") {
       if (!has("users")) throw new Error("Missing user management permission.");
       const payload = z.object({ userId: z.string().uuid() }).parse(data.payload);
