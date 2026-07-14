@@ -428,6 +428,46 @@ export const dashboardAction = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    if (data.type === "queueHistoryAction") {
+      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
+      const payload = z
+        .object({
+          historyId: z.string().uuid(),
+          message: z.string().trim().max(300).optional().default(""),
+          kickReason: z.string().trim().max(300).optional().default(""),
+        })
+        .parse(data.payload);
+      const update: Record<string, unknown> = {};
+      if (payload.message) update.pending_message = payload.message;
+      if (payload.kickReason) update.pending_kick_reason = payload.kickReason;
+      if (!Object.keys(update).length) throw new Error("Nothing to queue.");
+      const { data: row, error } = await db
+        .from("player_history")
+        .update(update)
+        .eq("id", payload.historyId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      // Also mirror to any live session for this user so it applies instantly.
+      if (row?.player_user_id) {
+        const sessionUpdate: Record<string, unknown> = {};
+        if (payload.message) sessionUpdate.pending_message = payload.message;
+        if (payload.kickReason) {
+          sessionUpdate.status = "kicked";
+          sessionUpdate.kick_reason = payload.kickReason;
+          sessionUpdate.ended_at = new Date().toISOString();
+        }
+        if (Object.keys(sessionUpdate).length) {
+          await db
+            .from("script_usage_sessions")
+            .update(sessionUpdate)
+            .eq("player_user_id", row.player_user_id)
+            .eq("status", "active");
+        }
+      }
+      return { ok: true };
+    }
+
     if (data.type === "upsertStaff") {
       if (!has("users")) throw new Error("Missing user management permission.");
       const payload = z
