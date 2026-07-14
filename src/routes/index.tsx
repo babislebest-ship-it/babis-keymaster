@@ -524,10 +524,28 @@ function Dashboard() {
 
             <TabsContent value="staff" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
               <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Add staff permissions</h2>
-                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="Existing account username" /></label>
+                <h2 className="text-lg font-semibold">Create staff account</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Owner creates the account directly — no signup needed.</p>
+                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="e.g. staff_alex" /></label>
+                <label className="mt-3 grid gap-1 text-sm">Password<Input type="password" value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} placeholder="Min. 6 characters" /></label>
                 <div className="mt-4 grid gap-2">{Object.entries(staffPermissions).map(([key, value]) => <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm"><span>{key.replace(/([A-Z])/g, " $1")}</span><Switch checked={value} onCheckedChange={(checked) => setStaffPermissions({ ...staffPermissions, [key]: checked })} /></label>)}</div>
-                <Button className="mt-4 w-full" disabled={!can.users} onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}><UserCog /> Save staff</Button>
+                <Button
+                  className="mt-4 w-full"
+                  disabled={!can.users || staffUsername.length < 3 || staffPassword.length < 6}
+                  onClick={() => {
+                    action.mutate(
+                      { type: "createStaffAccount", payload: { username: staffUsername, password: staffPassword, ...staffPermissions } },
+                      { onSuccess: () => { setStaffUsername(""); setStaffPassword(""); } },
+                    );
+                  }}
+                ><UserCog /> Create account</Button>
+                <Button
+                  className="mt-2 w-full"
+                  variant="outline"
+                  disabled={!can.users || staffUsername.length < 3}
+                  onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}
+                >Update existing user's permissions</Button>
+                <p className="mt-2 text-xs text-muted-foreground">Login email will be <code>username@babis.local</code>.</p>
               </div>
               <div className="app-panel overflow-hidden rounded-lg"><ResponsiveRows rows={data?.users ?? []} empty="No accounts yet." render={(user: any) => <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="font-semibold">{user.username}</div><div className="text-xs text-muted-foreground">{user.account_status}</div></div><Button variant="outline" size="sm" onClick={() => action.mutate({ type: "removeStaff", payload: { userId: user.id } })} disabled={!can.users}>Remove staff</Button></div>} /></div>
             </TabsContent>
