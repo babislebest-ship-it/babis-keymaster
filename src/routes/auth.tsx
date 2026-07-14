@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initializeAccount } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -26,45 +25,12 @@ function AuthPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [googleBusy, setGoogleBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
-      // Ensure a profile exists for Google users (uses email prefix as username).
-      const user = data.session.user;
-      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-      let username = String(meta.username ?? "").trim();
-      if (!username && user.email) {
-        username = user.email.split("@")[0].replace(/[^A-Za-z0-9_]/g, "").slice(0, 32);
-        if (username.length < 3) username = `user_${user.id.slice(0, 6)}`;
-      }
-      try {
-        await initialize({ data: { username, displayName: String(meta.full_name ?? username) } });
-      } catch {
-        /* profile might already exist */
-      }
-      await queryClient.invalidateQueries();
-      navigate({ to: "/" });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate({ to: "/" });
     });
-  }, [initialize, navigate, queryClient]);
-
-  async function signInWithGoogle() {
-    setGoogleBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-      if (result.error) throw new Error(String(result.error.message ?? result.error));
-      if (result.redirected) return;
-      // Popup flow success — session is set.
-      await queryClient.invalidateQueries();
-      toast.success("Signed in with Google");
-      navigate({ to: "/" });
-    } catch (err) {
-      toast.error("Google sign-in failed", { description: (err as Error).message });
-    } finally {
-      setGoogleBusy(false);
-    }
-  }
+  }, [navigate]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -104,14 +70,7 @@ function AuthPage() {
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 flex size-12 items-center justify-center bg-primary text-primary-foreground"><Shield /></div>
           <h1 className="text-2xl font-semibold">Babis Premium</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in with Google to host your scripts, or with staff credentials.</p>
-        </div>
-        <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle} disabled={googleBusy}>
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1a6.2 6.2 0 1 1 0-12.4c2 0 3.3.8 4 1.5l2.7-2.6C17 3 14.7 2 12 2 6.9 2 2.8 6.1 2.8 11.2S6.9 20.4 12 20.4c6.9 0 11.4-4.9 11.4-11.7 0-.8-.1-1.4-.2-2H12z"/></svg>
-          {googleBusy ? "Opening Google…" : "Continue with Google"}
-        </Button>
-        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-border" /> Staff sign-in <div className="h-px flex-1 bg-border" />
+          <p className="mt-2 text-sm text-muted-foreground">Sign in with your staff username and password.</p>
         </div>
         <form className="grid gap-3" onSubmit={submit}>
           <label className="grid gap-1 text-sm">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus /></label>
