@@ -141,12 +141,31 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
 
         // Upsert player history (deduplicated by player_key)
         const playerKey = parsed.playerUserId || parsed.playerName || ipHash;
+        let pendingMessage: string | null = null;
         if (playerKey) {
           const { data: existing } = await db
             .from("player_history")
-            .select("id,connection_count")
+            .select("id,connection_count,pending_message,pending_kick_reason")
             .eq("player_key", playerKey)
             .maybeSingle();
+          // If a kick was queued while offline, block launch now.
+          if (existing?.pending_kick_reason) {
+            const reason = existing.pending_kick_reason as string;
+            await db
+              .from("player_history")
+              .update({ pending_kick_reason: null, last_seen_at: new Date().toISOString() })
+              .eq("id", existing.id);
+            await db
+              .from("script_usage_sessions")
+              .update({ status: "kicked", kick_reason: reason, ended_at: new Date().toISOString() })
+              .eq("id", session.id);
+            return reply({ ok: false, message: reason }, 403);
+          }
+          if (existing?.pending_message) {
+            pendingMessage = existing.pending_message as string;
+            await db.from("player_history").update({ pending_message: null }).eq("id", existing.id);
+            await db.from("script_usage_sessions").update({ pending_message: pendingMessage }).eq("id", session.id);
+          }
           if (existing) {
             await db
               .from("player_history")
@@ -158,6 +177,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
                 last_script_id: script.id,
                 place_id: parsed.placeId || null,
                 job_id: parsed.jobId || null,
+                presence_type: 2,
                 connection_count: (existing.connection_count ?? 0) + 1,
                 last_seen_at: new Date().toISOString(),
               })
@@ -172,6 +192,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               last_script_id: script.id,
               place_id: parsed.placeId || null,
               job_id: parsed.jobId || null,
+              presence_type: 2,
             });
           }
         }

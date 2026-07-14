@@ -91,10 +91,17 @@ export type Database = {
           job_id: string | null
           last_script_id: string | null
           last_seen_at: string
+          pending_kick_reason: string | null
+          pending_message: string | null
           place_id: string | null
           player_key: string
           player_name: string | null
           player_user_id: string | null
+          presence_checked_at: string | null
+          presence_last_location: string | null
+          presence_type: number | null
+          root_place_id: string | null
+          universe_id: string | null
           updated_at: string
         }
         Insert: {
@@ -107,10 +114,17 @@ export type Database = {
           job_id?: string | null
           last_script_id?: string | null
           last_seen_at?: string
+          pending_kick_reason?: string | null
+          pending_message?: string | null
           place_id?: string | null
           player_key: string
           player_name?: string | null
           player_user_id?: string | null
+          presence_checked_at?: string | null
+          presence_last_location?: string | null
+          presence_type?: number | null
+          root_place_id?: string | null
+          universe_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -123,10 +137,17 @@ export type Database = {
           job_id?: string | null
           last_script_id?: string | null
           last_seen_at?: string
+          pending_kick_reason?: string | null
+          pending_message?: string | null
           place_id?: string | null
           player_key?: string
           player_name?: string | null
           player_user_id?: string | null
+          presence_checked_at?: string | null
+          presence_last_location?: string | null
+          presence_type?: number | null
+          root_place_id?: string | null
+          universe_id?: string | null
           updated_at?: string
         }
         Relationships: [
