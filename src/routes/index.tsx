@@ -160,6 +160,9 @@ function Dashboard() {
     reason: "Access revoked by Babis staff.",
   });
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [presenceFilter, setPresenceFilter] = useState<"all" | "ingame" | "online" | "offline" | "watchlist">("all");
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
