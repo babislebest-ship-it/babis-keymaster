@@ -88,9 +88,11 @@ export type Database = {
           first_seen_at: string
           id: string
           ip_hash: string | null
+          is_watchlisted: boolean
           job_id: string | null
           last_script_id: string | null
           last_seen_at: string
+          notes: string | null
           pending_kick_reason: string | null
           pending_message: string | null
           place_id: string | null
@@ -111,9 +113,11 @@ export type Database = {
           first_seen_at?: string
           id?: string
           ip_hash?: string | null
+          is_watchlisted?: boolean
           job_id?: string | null
           last_script_id?: string | null
           last_seen_at?: string
+          notes?: string | null
           pending_kick_reason?: string | null
           pending_message?: string | null
           place_id?: string | null
@@ -134,9 +138,11 @@ export type Database = {
           first_seen_at?: string
           id?: string
           ip_hash?: string | null
+          is_watchlisted?: boolean
           job_id?: string | null
           last_script_id?: string | null
           last_seen_at?: string
+          notes?: string | null
           pending_kick_reason?: string | null
           pending_message?: string | null
           place_id?: string | null

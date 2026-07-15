@@ -1,0 +1,3 @@
+ALTER TABLE public.player_history
+  ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS is_watchlisted BOOLEAN NOT NULL DEFAULT false;
