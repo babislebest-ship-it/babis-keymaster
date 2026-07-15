@@ -160,6 +160,9 @@ function Dashboard() {
     reason: "Access revoked by Babis staff.",
   });
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [presenceFilter, setPresenceFilter] = useState<"all" | "ingame" | "online" | "offline" | "watchlist">("all");
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
@@ -440,40 +443,82 @@ function Dashboard() {
               </div>
               <div className="app-panel overflow-hidden rounded-lg xl:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
-                  <h2 className="text-lg font-semibold">Known players in-game ({history.filter((h: any) => h.presence_type === 2).length})</h2>
-                  <div className="text-xs text-muted-foreground">Roblox presence · refreshed every 20s</div>
+                  <h2 className="text-lg font-semibold">All known players ({history.length})</h2>
+                  <div className="text-xs text-muted-foreground">Control any player who ran the script once · presence refreshed every 20s</div>
                 </div>
-                <ResponsiveRows rows={history.filter((h: any) => h.presence_type === 2)} empty="No known players in a game right now." render={(row: any) => {
-                  const draft = messageDrafts[`hist:${row.id}`] ?? "";
-                  const joinUrl = row.place_id && row.job_id
-                    ? `roblox://experiences/start?placeId=${row.place_id}&gameInstanceId=${row.job_id}`
-                    : "";
-                  return (
-                    <div className="grid gap-3 p-4">
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                        <div>
-                          <div className="font-semibold">{row.player_name || "Unknown"} <span className="ml-2 text-xs font-normal text-muted-foreground">UserId {row.player_user_id || "n/a"}</span></div>
-                          <div className="text-xs text-muted-foreground">{row.presence_last_location || "In a Roblox game"} · executor {row.executor_name || "unknown"}</div>
-                          <div className="text-xs text-muted-foreground">Place {row.place_id || "?"} · Job {row.job_id || "?"}</div>
-                          {(row.pending_message || row.pending_kick_reason) && (
-                            <div className="text-xs text-primary">Queued: {row.pending_kick_reason ? `kick (${row.pending_kick_reason})` : `message (${row.pending_message})`}</div>
-                          )}
+                <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+                  <Input className="max-w-xs" placeholder="Search name, UserId, executor…" value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} />
+                  <Select value={presenceFilter} onValueChange={(v) => setPresenceFilter(v as typeof presenceFilter)}>
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All players</SelectItem>
+                      <SelectItem value="ingame">In game</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                      <SelectItem value="offline">Offline</SelectItem>
+                      <SelectItem value="watchlist">Watchlist</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ResponsiveRows
+                  rows={history.filter((h: any) => {
+                    const q = playerSearch.trim().toLowerCase();
+                    if (q && !`${h.player_name ?? ""} ${h.player_user_id ?? ""} ${h.executor_name ?? ""}`.toLowerCase().includes(q)) return false;
+                    if (presenceFilter === "ingame") return h.presence_type === 2;
+                    if (presenceFilter === "online") return h.presence_type === 1;
+                    if (presenceFilter === "offline") return !h.presence_type || h.presence_type === 0;
+                    if (presenceFilter === "watchlist") return Boolean(h.is_watchlisted);
+                    return true;
+                  })}
+                  empty="No players match your filter."
+                  render={(row: any) => {
+                    const draft = messageDrafts[`hist:${row.id}`] ?? "";
+                    const noteDraft = noteDrafts[`hist:${row.id}`] ?? row.notes ?? "";
+                    const joinUrl = row.place_id && row.job_id
+                      ? `roblox://experiences/start?placeId=${row.place_id}&gameInstanceId=${row.job_id}`
+                      : "";
+                    const presenceLabel = row.presence_type === 2 ? "In game" : row.presence_type === 1 ? "Online" : row.presence_type === 3 ? "In Studio" : "Offline";
+                    const presenceTone = row.presence_type === 2 ? "bg-primary text-primary-foreground" : row.presence_type === 1 ? "bg-muted text-foreground" : "bg-muted text-muted-foreground";
+                    return (
+                      <div className={`grid gap-3 p-4 ${row.is_watchlisted ? "border-l-4 border-destructive" : ""}`}>
+                        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold">{row.player_name || "Unknown"}</span>
+                              <span className={`rounded px-2 py-0.5 text-xs ${presenceTone}`}>{presenceLabel}</span>
+                              {row.is_watchlisted && <span className="rounded bg-destructive px-2 py-0.5 text-xs text-destructive-foreground">Watchlist</span>}
+                              <span className="text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">{row.presence_last_location || "—"} · executor {row.executor_name || "unknown"} · {row.connection_count} launches</div>
+                            <div className="text-xs text-muted-foreground">Place {row.place_id || "?"} · Job {row.job_id || "?"} · last seen {new Date(row.last_seen_at).toLocaleString()}</div>
+                            {(row.pending_message || row.pending_kick_reason) && (
+                              <div className="mt-1 flex items-center gap-2 text-xs text-primary">
+                                Queued: {row.pending_kick_reason ? `kick (${row.pending_kick_reason})` : `message (${row.pending_message})`}
+                                <button className="underline" onClick={() => action.mutate({ type: "clearQueuedActions", payload: { id: row.id } })}>clear</button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                            {joinUrl && (
+                              <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join</a></Button>
+                            )}
+                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, isWatchlisted: !row.is_watchlisted } })}>{row.is_watchlisted ? "Unflag" : "Watchlist"}</Button>
+                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, kickReason: banReason } })}>Kick</Button>
+                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
+                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: true, ipHash: row.ip_hash, reason: banReason } })}><Ban className="size-4" />Ban + IP</Button>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {joinUrl && (
-                            <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, kickReason: banReason } })}>Kick on next launch</Button>
-                          <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
+                          <Input className="flex-1 min-w-[12rem]" placeholder={row.presence_type === 2 ? "Message (delivers now if in a session, else on next launch)" : "Queue message for next launch…"} value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: e.target.value })} />
+                          <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: "" }); }}><MessageSquare className="size-4" />Send</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Input className="flex-1 min-w-[12rem]" placeholder="Moderation notes (only staff sees this)…" value={noteDraft} onChange={(e) => setNoteDrafts({ ...noteDrafts, [`hist:${row.id}`]: e.target.value })} />
+                          <Button size="sm" variant="outline" disabled={noteDraft === (row.notes ?? "")} onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, notes: noteDraft } })}>Save note</Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Input placeholder="Queue message for next launch…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: e.target.value })} />
-                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: "" }); }}><MessageSquare className="size-4" />Queue</Button>
-                      </div>
-                    </div>
-                  );
-                }} />
+                    );
+                  }}
+                />
               </div>
               <div className="app-panel rounded-lg p-4 sm:p-5">
                 <h2 className="text-lg font-semibold">Default kick reason</h2>
