@@ -535,6 +535,35 @@ export const dashboardAction = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    if (data.type === "updateHistory") {
+      if (!has("bans") && !has("logs") && !has("users")) throw new Error("Missing permission.");
+      const payload = z
+        .object({
+          id: z.string().uuid(),
+          notes: z.string().trim().max(1000).optional(),
+          isWatchlisted: z.boolean().optional(),
+        })
+        .parse(data.payload);
+      const update: Record<string, unknown> = {};
+      if (payload.notes !== undefined) update.notes = payload.notes;
+      if (payload.isWatchlisted !== undefined) update.is_watchlisted = payload.isWatchlisted;
+      if (!Object.keys(update).length) throw new Error("Nothing to update.");
+      const { error } = await db.from("player_history").update(update).eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "clearQueuedActions") {
+      if (!has("bans") && !has("logs")) throw new Error("Missing permission.");
+      const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      const { error } = await db
+        .from("player_history")
+        .update({ pending_message: null, pending_kick_reason: null })
+        .eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
     if (data.type === "upsertStaff") {
       if (!has("users")) throw new Error("Missing user management permission.");
       const payload = z
