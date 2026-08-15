@@ -55,30 +55,29 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         if (scriptError) return reply({ ok: false, message: scriptError.message }, 500);
         if (!script) return reply({ ok: false, message: "Script not found or disabled." }, 404);
 
-        const activeBanQuery = db
+        const { findMatchingBan } = await import("@/lib/ban-match.server");
+        const { data: candidateBans, error: banError } = await db
           .from("player_bans")
           .select("*")
           .eq("is_active", true)
-          .or(`scope.eq.global,and(scope.eq.script,script_id.eq.${script.id})`)
-          .or(
-            [
-              parsed.playerUserId ? `player_user_id.eq.${parsed.playerUserId}` : "player_user_id.is.null",
-              parsed.playerName ? `player_name.eq.${parsed.playerName}` : "player_name.is.null",
-              `ip_hash.eq.${ipHash}`,
-            ].join(","),
-          )
-          .limit(1);
-        const { data: bans, error: banError } = await activeBanQuery;
+          .in("scope", ["global", "script"])
+          .limit(1000);
         if (banError) return reply({ ok: false, message: banError.message }, 500);
-        if (bans?.length) {
+        const matchedBan = findMatchingBan(candidateBans, {
+          scriptId: script.id,
+          playerUserId: parsed.playerUserId,
+          playerName: parsed.playerName,
+          ipHash,
+        });
+        if (matchedBan) {
           await db.from("script_usage_events").insert({
             script_id: script.id,
             event_type: "blocked_ban",
             player_user_id: parsed.playerUserId || null,
             player_name: parsed.playerName || null,
-            message: bans[0].reason,
+            message: matchedBan.reason,
           });
-          return reply({ ok: false, message: `Access blocked. ${bans[0].reason} Appeal: ${bans[0].appeal_url}` }, 403);
+          return reply({ ok: false, message: `Access blocked. ${matchedBan.reason} Appeal: ${matchedBan.appeal_url}` }, 403);
         }
 
         let license = null;

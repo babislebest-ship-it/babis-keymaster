@@ -34,28 +34,28 @@ export const Route = createFileRoute("/api/public/heartbeat")({
           return reply({ ok: true, action: "kick", reason: session.kick_reason || "Access revoked" });
         }
 
-        const { data: bans, error: banError } = await db
+        const { findMatchingBan } = await import("@/lib/ban-match.server");
+        const { data: candidateBans, error: banError } = await db
           .from("player_bans")
           .select("*")
           .eq("is_active", true)
-          .or(`scope.eq.global,and(scope.eq.script,script_id.eq.${session.script_id})`)
-          .or(
-            [
-              session.player_user_id ? `player_user_id.eq.${session.player_user_id}` : "player_user_id.is.null",
-              session.player_name ? `player_name.eq.${session.player_name}` : "player_name.is.null",
-              session.license_id ? `license_id.eq.${session.license_id}` : "license_id.is.null",
-              session.ip_hash ? `ip_hash.eq.${session.ip_hash}` : "ip_hash.is.null",
-            ].join(","),
-          )
-          .limit(1);
+          .in("scope", ["global", "script"])
+          .limit(1000);
         if (banError) return reply({ ok: false, message: banError.message }, 500);
 
-        if (bans?.length) {
+        const matchedBan = findMatchingBan(candidateBans, {
+          scriptId: session.script_id,
+          playerUserId: session.player_user_id,
+          playerName: session.player_name,
+          licenseId: session.license_id,
+          ipHash: session.ip_hash,
+        });
+        if (matchedBan) {
           await db
             .from("script_usage_sessions")
-            .update({ status: "banned", kick_reason: bans[0].reason, ended_at: new Date().toISOString() })
+            .update({ status: "banned", kick_reason: matchedBan.reason, ended_at: new Date().toISOString() })
             .eq("id", session.id);
-          return reply({ ok: true, action: "kick", reason: bans[0].reason });
+          return reply({ ok: true, action: "kick", reason: matchedBan.reason });
         }
 
         const pendingMessage = session.pending_message as string | null;
