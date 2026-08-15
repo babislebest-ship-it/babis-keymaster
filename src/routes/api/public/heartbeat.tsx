@@ -68,6 +68,20 @@ export const Route = createFileRoute("/api/public/heartbeat")({
           })
           .eq("id", session.id);
 
+        // Keep the single player_history row in sync with the live session.
+        const { findPlayerHistoryRow } = await import("@/lib/player-history.server");
+        const historyRow = await findPlayerHistoryRow(db, {
+          playerUserId: session.player_user_id,
+          playerName: session.player_name,
+          ipHash: session.ip_hash,
+        });
+        if (historyRow) {
+          await db
+            .from("player_history")
+            .update({ last_seen_at: new Date().toISOString(), presence_type: 2 })
+            .eq("id", historyRow.id);
+        }
+
         return reply({ ok: true, action: "continue", message: pendingMessage || null });
       },
       OPTIONS: async () =>
