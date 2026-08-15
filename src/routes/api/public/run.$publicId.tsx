@@ -181,13 +181,20 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             await db.from("script_usage_sessions").update({ pending_message: pendingMessage }).eq("id", session.id);
           }
           if (existing) {
+            // Merge any older duplicate rows for the same Roblox account.
+            if (parsed.playerUserId) {
+              await db
+                .from("player_history")
+                .delete()
+                .eq("player_user_id", parsed.playerUserId)
+                .neq("id", existing.id);
+            }
             await db
               .from("player_history")
               .update({
-                player_key: playerKey,
-                player_user_id: parsed.playerUserId || null,
-                player_name: parsed.playerName || null,
-                executor_name: parsed.executorName || null,
+                player_user_id: parsed.playerUserId || existing.player_user_id || null,
+                player_name: parsed.playerName || existing.player_name || null,
+                executor_name: parsed.executorName || existing.executor_name || null,
                 ip_hash: ipHash,
                 last_script_id: script.id,
                 place_id: parsed.placeId || null,
