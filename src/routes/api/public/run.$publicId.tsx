@@ -112,6 +112,19 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             .eq("id", licenseRow.id);
         }
 
+        // One person = one live session. Close any older active session for
+        // the same player before opening a new one, so relaunching does not
+        // stack duplicate entries in the live list.
+        const staleFilters: string[] = [];
+        if (parsed.playerUserId) staleFilters.push(`player_user_id.eq.${parsed.playerUserId}`);
+        if (parsed.playerName) staleFilters.push(`player_name.eq.${parsed.playerName}`);
+        if (!staleFilters.length) staleFilters.push(`ip_hash.eq.${ipHash}`);
+        await db
+          .from("script_usage_sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString() })
+          .eq("status", "active")
+          .or(staleFilters.join(","));
+
         const { data: session, error: sessionError } = await db
           .from("script_usage_sessions")
           .insert({
@@ -138,15 +151,17 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           message: "Launch authorized",
         });
 
-        // Upsert player history (deduplicated by player_key)
-        const playerKey = parsed.playerUserId || parsed.playerName || ipHash;
+        // Upsert player history (one row per real player)
+        const { buildPlayerKey, findPlayerHistoryRow } = await import("@/lib/player-history.server");
+        const identity = {
+          playerUserId: parsed.playerUserId || null,
+          playerName: parsed.playerName || null,
+          ipHash,
+        };
+        const playerKey = buildPlayerKey(identity);
         let pendingMessage: string | null = null;
-        if (playerKey) {
-          const { data: existing } = await db
-            .from("player_history")
-            .select("id,connection_count,pending_message,pending_kick_reason")
-            .eq("player_key", playerKey)
-            .maybeSingle();
+        {
+          const existing = await findPlayerHistoryRow(db, identity);
           // If a kick was queued while offline, block launch now.
           if (existing?.pending_kick_reason) {
             const reason = existing.pending_kick_reason as string;
@@ -169,6 +184,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             await db
               .from("player_history")
               .update({
+                player_key: playerKey,
                 player_user_id: parsed.playerUserId || null,
                 player_name: parsed.playerName || null,
                 executor_name: parsed.executorName || null,
