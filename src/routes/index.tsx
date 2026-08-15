@@ -279,9 +279,8 @@ function Dashboard() {
         <div className="app-panel max-w-md rounded-lg p-6 text-center">
           <Shield className="mx-auto mb-4 size-10 text-primary" />
           <h1 className="text-xl font-semibold">Dashboard access is not ready</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Create your profile as Babis first, or ask the owner to add your staff permissions.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Ask the owner to grant your account staff permissions.</p>
           <div className="mt-5 flex justify-center gap-2">
-            <Button asChild><Link to="/auth">Profile setup</Link></Button>
             <Button variant="outline" onClick={signOut}>Sign out</Button>
           </div>
         </div>
