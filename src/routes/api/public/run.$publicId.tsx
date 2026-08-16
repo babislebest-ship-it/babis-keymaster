@@ -115,15 +115,20 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         // One person = one live session. Close any older active session for
         // the same player before opening a new one, so relaunching does not
         // stack duplicate entries in the live list.
-        const staleFilters: string[] = [];
-        if (parsed.playerUserId) staleFilters.push(`player_user_id.eq.${parsed.playerUserId}`);
-        if (parsed.playerName) staleFilters.push(`player_name.eq.${parsed.playerName}`);
-        if (!staleFilters.length) staleFilters.push(`ip_hash.eq.${ipHash}`);
-        await db
+        let staleSessionQuery = db
           .from("script_usage_sessions")
           .update({ status: "ended", ended_at: new Date().toISOString() })
-          .eq("status", "active")
-          .or(staleFilters.join(","));
+          .eq("status", "active");
+        // Use exactly one strongest identifier. Building a PostgREST `.or()`
+        // expression from client strings could close unrelated live sessions.
+        if (parsed.playerUserId) {
+          staleSessionQuery = staleSessionQuery.eq("player_user_id", parsed.playerUserId);
+        } else if (parsed.playerName) {
+          staleSessionQuery = staleSessionQuery.ilike("player_name", parsed.playerName);
+        } else {
+          staleSessionQuery = staleSessionQuery.eq("ip_hash", ipHash);
+        }
+        await staleSessionQuery;
 
         const { data: session, error: sessionError } = await db
           .from("script_usage_sessions")

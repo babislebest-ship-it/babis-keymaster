@@ -14,8 +14,6 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const OWNER_USERNAME = "Babis";
-const OWNER_PASSWORD = "Lmad2010";
 const usernameToEmail = (u: string) => `${u.trim().toLowerCase()}@babis.local`;
 
 function AuthPage() {
@@ -39,20 +37,8 @@ function AuthPage() {
     setBusy(true);
     try {
       const email = usernameToEmail(u);
-      let { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        // Bootstrap the owner account on first login only.
-        if (u === OWNER_USERNAME && password === OWNER_PASSWORD) {
-          const signup = await supabase.auth.signUp({ email, password });
-          if (signup.error) throw signup.error;
-          if (!signup.data.session) {
-            const retry = await supabase.auth.signInWithPassword({ email, password });
-            if (retry.error) throw retry.error;
-          }
-        } else {
-          throw error;
-        }
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       await initialize({ data: { username: u } });
       await queryClient.invalidateQueries();
       toast.success("Signed in");

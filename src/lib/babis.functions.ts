@@ -32,26 +32,14 @@ export const initializeAccount = createServerFn({ method: "POST" })
       .eq("role", "owner");
     if (countError) throw new Error(countError.message);
 
-    const ownerClaim = (ownerCount ?? 0) === 0 && data.username.toLowerCase() === "babis";
-    const role = ownerClaim ? "owner" : "member";
+    const ownerClaim = false;
+    const role = "member";
 
     const { error: roleError } = await db.from("user_roles").upsert(
       { user_id: userId, role },
       { onConflict: "user_id,role" },
     );
     if (roleError) throw new Error(roleError.message);
-
-    if (ownerClaim) {
-      const { error: permissionError } = await db.from("staff_permissions").upsert({
-        user_id: userId,
-        can_manage_scripts: true,
-        can_manage_licenses: true,
-        can_manage_bans: true,
-        can_manage_users: true,
-        can_view_logs: true,
-      });
-      if (permissionError) throw new Error(permissionError.message);
-    }
 
     return { ok: true, role };
   });
@@ -300,6 +288,10 @@ export const dashboardAction = createServerFn({ method: "POST" })
           isActive: z.boolean(),
         })
         .parse(data.payload);
+      if (payload.scope === "script" && !payload.scriptId) throw new Error("Choose a script for this ban.");
+      if (!payload.playerUserId && !payload.playerName && !payload.licenseId && !(payload.includeIp && payload.ipHash)) {
+        throw new Error("A ban must target one specific player identifier.");
+      }
 
       if (payload.id) {
         const { data: updated, error } = await db
@@ -525,11 +517,19 @@ export const dashboardAction = createServerFn({ method: "POST" })
           sessionUpdate.ended_at = new Date().toISOString();
         }
         if (Object.keys(sessionUpdate).length) {
-          await db
+          let activeSessionQuery = db
             .from("script_usage_sessions")
             .update(sessionUpdate)
-            .eq("player_user_id", row.player_user_id)
             .eq("status", "active");
+          if (row.player_user_id) {
+            activeSessionQuery = activeSessionQuery.eq("player_user_id", row.player_user_id);
+          } else if (row.player_name) {
+            activeSessionQuery = activeSessionQuery.ilike("player_name", row.player_name);
+          } else {
+            throw new Error("This player has no safe identity for a live action.");
+          }
+          const { error: sessionError } = await activeSessionQuery;
+          if (sessionError) throw new Error(sessionError.message);
         }
       }
       return { ok: true };

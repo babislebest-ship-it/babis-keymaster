@@ -41,10 +41,14 @@ export async function findPlayerHistoryRow(db: any, identity: PlayerIdentity) {
   }
 
   if (name) {
-    const { data } = await db
+    let query = db
       .from("player_history")
       .select("*")
-      .ilike("player_name", name)
+      .ilike("player_name", name);
+    // A matching username must never merge two known, different Roblox ids.
+    // Name fallback is only for upgrading an older name-only history record.
+    if (userId) query = query.is("player_user_id", null);
+    const { data } = await query
       .order("last_seen_at", { ascending: false })
       .limit(1);
     if (data?.length) return data[0];
