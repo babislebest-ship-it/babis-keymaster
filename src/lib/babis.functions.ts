@@ -26,13 +26,6 @@ export const initializeAccount = createServerFn({ method: "POST" })
     });
     if (profileError) throw new Error(profileError.message);
 
-    const { count: ownerCount, error: countError } = await db
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "owner");
-    if (countError) throw new Error(countError.message);
-
-    const ownerClaim = false;
     const role = "member";
 
     const { error: roleError } = await db.from("user_roles").upsert(
@@ -288,11 +281,6 @@ export const dashboardAction = createServerFn({ method: "POST" })
           isActive: z.boolean(),
         })
         .parse(data.payload);
-      if (payload.scope === "script" && !payload.scriptId) throw new Error("Choose a script for this ban.");
-      if (!payload.playerUserId && !payload.playerName && !payload.licenseId && !(payload.includeIp && payload.ipHash)) {
-        throw new Error("A ban must target one specific player identifier.");
-      }
-
       if (payload.id) {
         const { data: updated, error } = await db
           .from("scripts")
@@ -406,6 +394,10 @@ export const dashboardAction = createServerFn({ method: "POST" })
           durationMinutes: z.number().int().positive().nullable().optional(),
         })
         .parse(data.payload);
+      if (payload.scope === "script" && !payload.scriptId) throw new Error("Choose a script for this ban.");
+      if (!payload.playerUserId && !payload.playerName && !payload.licenseId && !(payload.includeIp && payload.ipHash)) {
+        throw new Error("A ban must target one specific player identifier.");
+      }
       const expiresAt = payload.durationMinutes
         ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
         : null;
