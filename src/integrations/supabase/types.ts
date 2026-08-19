@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          discord_invite_url: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          discord_invite_url?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          discord_invite_url?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       player_bans: {
         Row: {
           appeal_url: string
