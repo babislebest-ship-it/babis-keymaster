@@ -213,6 +213,12 @@ export const getDashboardData = createServerFn({ method: "GET" })
       .limit(500);
     if (historyError) throw new Error(historyError.message);
 
+    const { data: settings } = await db
+      .from("app_settings")
+      .select("discord_invite_url")
+      .eq("id", "global")
+      .maybeSingle();
+
     return {
       profile: profileResult.data,
       roles: roleList,
@@ -226,6 +232,7 @@ export const getDashboardData = createServerFn({ method: "GET" })
       userRoles: rolesResult.data ?? [],
       staffPermissions: staffResult.data ?? [],
       history: history ?? [],
+      discordInviteUrl: settings?.discord_invite_url ?? "https://discord.gg/75auNNfmhS",
     };
   });
 
