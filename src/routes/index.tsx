@@ -11,6 +11,7 @@ import {
   History,
   KeyRound,
   LogOut,
+  Link2,
   Menu,
   Plus,
   Save,
@@ -163,6 +164,7 @@ function Dashboard() {
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [playerSearch, setPlayerSearch] = useState("");
   const [presenceFilter, setPresenceFilter] = useState<"all" | "ingame" | "online" | "offline" | "watchlist">("all");
+  const [discordLink, setDiscordLink] = useState("");
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
   const [staffPermissions, setStaffPermissions] = useState({
@@ -224,6 +226,10 @@ function Dashboard() {
     onError: (error) => toast.error("Action failed", { description: error.message }),
   });
 
+  useEffect(() => {
+    if (data?.discordInviteUrl) setDiscordLink((current) => current || String(data.discordInviteUrl));
+  }, [data?.discordInviteUrl]);
+
   const can = useMemo(() => {
     const roles = data?.roles ?? [];
     const permission = data?.permissions ?? {};
@@ -233,6 +239,7 @@ function Dashboard() {
       licenses: owner || permission.can_manage_licenses,
       bans: owner || permission.can_manage_bans,
       users: owner || permission.can_manage_users,
+      owner,
       logs: owner || permission.can_view_logs,
     };
   }, [data]);
@@ -345,6 +352,7 @@ function Dashboard() {
               <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
               <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
               <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
+              <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
             </TabsList>
 
             <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
@@ -642,6 +650,33 @@ function Dashboard() {
                 <p className="mt-2 text-xs text-muted-foreground">Login email will be <code>username@babis.local</code>.</p>
               </div>
               <div className="app-panel overflow-hidden rounded-lg"><ResponsiveRows rows={data?.users ?? []} empty="No accounts yet." render={(user: any) => <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="font-semibold">{user.username}</div><div className="text-xs text-muted-foreground">{user.account_status}</div></div><Button variant="outline" size="sm" onClick={() => action.mutate({ type: "removeStaff", payload: { userId: user.id } })} disabled={!can.users}>Remove staff</Button></div>} /></div>
+            </TabsContent>
+
+            <TabsContent value="settings" className="grid gap-4">
+              <div className="app-panel rounded-lg p-4 sm:p-5">
+                <h2 className="text-lg font-semibold">Discord invite link</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Used in the loader GUI and in every kick / appeal message. Changing it updates all existing bans too.
+                </p>
+                <label className="mt-4 grid gap-1 text-sm">
+                  Invite URL
+                  <Input value={discordLink} onChange={(event) => setDiscordLink(event.target.value)} placeholder="https://discord.gg/..." />
+                </label>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    disabled={!can.owner || action.isPending || !/^https?:\/\//.test(discordLink.trim())}
+                    onClick={() => action.mutate({ type: "updateDiscordLink", payload: { url: discordLink.trim() } })}
+                  ><Save /> Save link</Button>
+                  <Button variant="outline" onClick={() => copyText("Discord link", discordLink.trim())}><Copy /> Copy</Button>
+                  {discordLink.trim() ? (
+                    <a href={discordLink.trim()} target="_blank" rel="noreferrer" className="inline-flex">
+                      <Button variant="outline"><ExternalLink /> Open</Button>
+                    </a>
+                  ) : null}
+                </div>
+                {!can.owner ? <p className="mt-3 text-xs text-muted-foreground">Only the owner can change this link.</p> : null}
+                <p className="mt-3 text-xs text-muted-foreground">Current live link: <code>{data?.discordInviteUrl ?? "—"}</code></p>
+              </div>
             </TabsContent>
           </Tabs>
         </section>
