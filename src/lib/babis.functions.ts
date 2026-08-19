@@ -401,6 +401,11 @@ export const dashboardAction = createServerFn({ method: "POST" })
       const expiresAt = payload.durationMinutes
         ? new Date(Date.now() + payload.durationMinutes * 60_000).toISOString()
         : null;
+      const { data: settingsRow } = await db
+        .from("app_settings")
+        .select("discord_invite_url")
+        .eq("id", "global")
+        .maybeSingle();
       const { error } = await db.from("player_bans").insert({
         scope: payload.scope,
         script_id: payload.scope === "script" ? payload.scriptId : null,
@@ -410,10 +415,25 @@ export const dashboardAction = createServerFn({ method: "POST" })
         ip_hash: payload.includeIp ? (payload.ipHash || null) : null,
         reason: payload.reason,
         expires_at: expiresAt,
+        appeal_url: settingsRow?.discord_invite_url || "https://discord.gg/75auNNfmhS",
         created_by: userId,
       });
       if (error) throw new Error(error.message);
       return { ok: true };
+    }
+
+    if (data.type === "updateDiscordLink") {
+      if (!roleList.includes("owner")) throw new Error("Only the owner can change the Discord link.");
+      const payload = z
+        .object({ url: z.string().trim().url().max(200) })
+        .parse(data.payload);
+      const { error } = await db
+        .from("app_settings")
+        .upsert({ id: "global", discord_invite_url: payload.url, updated_by: userId, updated_at: new Date().toISOString() });
+      if (error) throw new Error(error.message);
+      // Keep existing appeal links in sync so kick messages show the new invite.
+      await db.from("player_bans").update({ appeal_url: payload.url }).neq("id", "00000000-0000-0000-0000-000000000000");
+      return { ok: true, url: payload.url };
     }
 
     if (data.type === "sendMessage") {
