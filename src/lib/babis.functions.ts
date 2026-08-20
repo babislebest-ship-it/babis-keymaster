@@ -338,6 +338,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
           scriptId: z.string().uuid(),
           label: z.string().trim().max(100).default(""),
           durationMinutes: z.number().int().positive().nullable().optional(),
+          maxUsers: z.number().int().min(0).max(100000).nullable().optional(),
         })
         .parse(data.payload);
       const key = `BABIS-${crypto.randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase()}`;
@@ -352,6 +353,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
           label: payload.label,
           duration_minutes: payload.durationMinutes ?? null,
           expires_at: expiresAt,
+          max_users: payload.maxUsers && payload.maxUsers > 0 ? payload.maxUsers : null,
           created_by: userId,
         })
         .select("*")
@@ -383,6 +385,32 @@ export const dashboardAction = createServerFn({ method: "POST" })
       const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
       const { error } = await db.from("script_licenses").delete().eq("id", payload.id);
       if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "setLicenseLimit") {
+      if (!has("licenses")) throw new Error("Missing license management permission.");
+      const payload = z
+        .object({ id: z.string().uuid(), maxUsers: z.number().int().min(0).max(100000).nullable() })
+        .parse(data.payload);
+      const { error } = await db
+        .from("script_licenses")
+        .update({ max_users: payload.maxUsers && payload.maxUsers > 0 ? payload.maxUsers : null })
+        .eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
+    if (data.type === "resetLicenseSeats") {
+      if (!has("licenses")) throw new Error("Missing license management permission.");
+      const payload = z.object({ id: z.string().uuid() }).parse(data.payload);
+      const { error } = await db.from("license_seats").delete().eq("license_id", payload.id);
+      if (error) throw new Error(error.message);
+      const { error: resetError } = await db
+        .from("script_licenses")
+        .update({ seat_count: 0, bound_player_user_id: null, bound_player_name: null })
+        .eq("id", payload.id);
+      if (resetError) throw new Error(resetError.message);
       return { ok: true };
     }
 

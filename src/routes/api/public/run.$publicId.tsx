@@ -96,9 +96,58 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             await db.from("script_licenses").update({ status: "expired" }).eq("id", licenseRow.id);
             return reply({ ok: false, message: "License expired." }, 403);
           }
-          if (licenseRow.bound_player_user_id && parsed.playerUserId && licenseRow.bound_player_user_id !== parsed.playerUserId) {
+          const seatLimit = Number(licenseRow.max_users ?? 0);
+          // Single-seat keys stay bound to their first player; multi-seat and
+          // unlimited keys are governed by the seat table instead.
+          if (seatLimit === 1 && licenseRow.bound_player_user_id && parsed.playerUserId && licenseRow.bound_player_user_id !== parsed.playerUserId) {
             return reply({ ok: false, message: "License is already bound to another player." }, 403);
           }
+
+          // Seat limit: max_users null/0 => unlimited users on this key.
+          const seatKey = (parsed.playerUserId && `id:${parsed.playerUserId}`)
+            || (parsed.playerName && `name:${parsed.playerName.toLowerCase()}`)
+            || `ip:${ipHash}`;
+          const { data: existingSeat } = await db
+            .from("license_seats")
+            .select("*")
+            .eq("license_id", licenseRow.id)
+            .eq("player_key", seatKey)
+            .maybeSingle();
+          const maxUsers = seatLimit;
+          if (!existingSeat && maxUsers > 0) {
+            const { count } = await db
+              .from("license_seats")
+              .select("id", { count: "exact", head: true })
+              .eq("license_id", licenseRow.id);
+            if ((count ?? 0) >= maxUsers) {
+              return reply(
+                { ok: false, message: `This license already reached its limit of ${maxUsers} user(s).` },
+                403,
+              );
+            }
+          }
+          if (existingSeat) {
+            await db
+              .from("license_seats")
+              .update({
+                last_used_at: new Date().toISOString(),
+                player_user_id: parsed.playerUserId || existingSeat.player_user_id || null,
+                player_name: parsed.playerName || existingSeat.player_name || null,
+              })
+              .eq("id", existingSeat.id);
+          } else {
+            await db.from("license_seats").insert({
+              license_id: licenseRow.id,
+              player_key: seatKey,
+              player_user_id: parsed.playerUserId || null,
+              player_name: parsed.playerName || null,
+            });
+          }
+          const { count: seatTotal } = await db
+            .from("license_seats")
+            .select("id", { count: "exact", head: true })
+            .eq("license_id", licenseRow.id);
+
           license = licenseRow;
           await db
             .from("script_licenses")
@@ -106,8 +155,11 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               first_used_at: licenseRow.first_used_at ?? new Date().toISOString(),
               last_used_at: new Date().toISOString(),
               usage_count: (licenseRow.usage_count ?? 0) + 1,
-              bound_player_user_id: licenseRow.bound_player_user_id ?? (parsed.playerUserId || null),
-              bound_player_name: licenseRow.bound_player_name ?? (parsed.playerName || null),
+              seat_count: seatTotal ?? 0,
+              bound_player_user_id:
+                maxUsers === 1 ? licenseRow.bound_player_user_id ?? (parsed.playerUserId || null) : null,
+              bound_player_name:
+                maxUsers === 1 ? licenseRow.bound_player_name ?? (parsed.playerName || null) : null,
             })
             .eq("id", licenseRow.id);
         }
