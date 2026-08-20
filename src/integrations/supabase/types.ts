@@ -35,6 +35,47 @@ export type Database = {
         }
         Relationships: []
       }
+      license_seats: {
+        Row: {
+          created_at: string
+          first_used_at: string
+          id: string
+          last_used_at: string
+          license_id: string
+          player_key: string
+          player_name: string | null
+          player_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_used_at?: string
+          id?: string
+          last_used_at?: string
+          license_id: string
+          player_key: string
+          player_name?: string | null
+          player_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_used_at?: string
+          id?: string
+          last_used_at?: string
+          license_id?: string
+          player_key?: string
+          player_name?: string | null
+          player_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_seats_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "script_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_bans: {
         Row: {
           appeal_url: string
@@ -272,10 +313,12 @@ export type Database = {
           label: string
           last_used_at: string | null
           license_key: string
+          max_users: number | null
           revoke_reason: string | null
           revoked_at: string | null
           revoked_by: string | null
           script_id: string
+          seat_count: number
           status: Database["public"]["Enums"]["license_status"]
           updated_at: string
           usage_count: number
@@ -292,10 +335,12 @@ export type Database = {
           label?: string
           last_used_at?: string | null
           license_key: string
+          max_users?: number | null
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           script_id: string
+          seat_count?: number
           status?: Database["public"]["Enums"]["license_status"]
           updated_at?: string
           usage_count?: number
@@ -312,10 +357,12 @@ export type Database = {
           label?: string
           last_used_at?: string | null
           license_key?: string
+          max_users?: number | null
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           script_id?: string
+          seat_count?: number
           status?: Database["public"]["Enums"]["license_status"]
           updated_at?: string
           usage_count?: number
