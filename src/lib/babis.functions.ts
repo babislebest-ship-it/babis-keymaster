@@ -339,6 +339,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
           label: z.string().trim().max(100).default(""),
           durationMinutes: z.number().int().positive().nullable().optional(),
           maxUsers: z.number().int().min(0).max(100000).nullable().optional(),
+          allScripts: z.boolean().optional().default(false),
         })
         .parse(data.payload);
       const key = `BABIS-${crypto.randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase()}`;
@@ -354,12 +355,24 @@ export const dashboardAction = createServerFn({ method: "POST" })
           duration_minutes: payload.durationMinutes ?? null,
           expires_at: expiresAt,
           max_users: payload.maxUsers && payload.maxUsers > 0 ? payload.maxUsers : null,
+          all_scripts: payload.allScripts === true,
           created_by: userId,
         })
         .select("*")
         .single();
       if (error) throw new Error(error.message);
       return { ok: true, license };
+    }
+
+    if (data.type === "setLicenseScope") {
+      if (!has("licenses")) throw new Error("Missing license management permission.");
+      const payload = z.object({ id: z.string().uuid(), allScripts: z.boolean() }).parse(data.payload);
+      const { error } = await db
+        .from("script_licenses")
+        .update({ all_scripts: payload.allScripts })
+        .eq("id", payload.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
     }
 
     if (data.type === "setLicenseStatus") {

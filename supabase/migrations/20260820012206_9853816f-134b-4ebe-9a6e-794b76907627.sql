@@ -1,0 +1,1 @@
+ALTER TABLE public.script_licenses ADD COLUMN IF NOT EXISTS all_scripts boolean NOT NULL DEFAULT false;
