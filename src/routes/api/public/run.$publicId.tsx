@@ -83,13 +83,18 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         let license = null;
         if (script.require_license) {
           if (!parsed.licenseKey) return reply({ ok: false, message: "A license key is required." }, 401);
-          const { data: licenseRow, error: licenseError } = await db
+          // A key is valid either for this exact script, or for every script
+          // when it was created as an all-scripts key.
+          const { data: licenseRows, error: licenseError } = await db
             .from("script_licenses")
             .select("*")
-            .eq("script_id", script.id)
             .eq("license_key", parsed.licenseKey)
-            .maybeSingle();
+            .limit(50);
           if (licenseError) return reply({ ok: false, message: licenseError.message }, 500);
+          const licenseRow =
+            (licenseRows ?? []).find((row: any) => row.script_id === script.id) ??
+            (licenseRows ?? []).find((row: any) => row.all_scripts === true) ??
+            null;
           if (!licenseRow) return reply({ ok: false, message: "Invalid license key." }, 401);
           if (licenseRow.status !== "active") return reply({ ok: false, message: `License is ${licenseRow.status}.` }, 403);
           if (licenseRow.expires_at && new Date(licenseRow.expires_at).getTime() < Date.now()) {
