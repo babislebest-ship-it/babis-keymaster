@@ -302,6 +302,7 @@ export type Database = {
       }
       script_licenses: {
         Row: {
+          all_scripts: boolean
           bound_player_name: string | null
           bound_player_user_id: string | null
           created_at: string
@@ -324,6 +325,7 @@ export type Database = {
           usage_count: number
         }
         Insert: {
+          all_scripts?: boolean
           bound_player_name?: string | null
           bound_player_user_id?: string | null
           created_at?: string
@@ -346,6 +348,7 @@ export type Database = {
           usage_count?: number
         }
         Update: {
+          all_scripts?: boolean
           bound_player_name?: string | null
           bound_player_user_id?: string | null
           created_at?: string
