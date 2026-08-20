@@ -96,7 +96,10 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             await db.from("script_licenses").update({ status: "expired" }).eq("id", licenseRow.id);
             return reply({ ok: false, message: "License expired." }, 403);
           }
-          if (licenseRow.bound_player_user_id && parsed.playerUserId && licenseRow.bound_player_user_id !== parsed.playerUserId) {
+          const seatLimit = Number(licenseRow.max_users ?? 0);
+          // Single-seat keys stay bound to their first player; multi-seat and
+          // unlimited keys are governed by the seat table instead.
+          if (seatLimit === 1 && licenseRow.bound_player_user_id && parsed.playerUserId && licenseRow.bound_player_user_id !== parsed.playerUserId) {
             return reply({ ok: false, message: "License is already bound to another player." }, 403);
           }
 
@@ -110,7 +113,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
             .eq("license_id", licenseRow.id)
             .eq("player_key", seatKey)
             .maybeSingle();
-          const maxUsers = Number(licenseRow.max_users ?? 0);
+          const maxUsers = seatLimit;
           if (!existingSeat && maxUsers > 0) {
             const { count } = await db
               .from("license_seats")
@@ -153,8 +156,10 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               last_used_at: new Date().toISOString(),
               usage_count: (licenseRow.usage_count ?? 0) + 1,
               seat_count: seatTotal ?? 0,
-              bound_player_user_id: licenseRow.bound_player_user_id ?? (parsed.playerUserId || null),
-              bound_player_name: licenseRow.bound_player_name ?? (parsed.playerName || null),
+              bound_player_user_id:
+                maxUsers === 1 ? licenseRow.bound_player_user_id ?? (parsed.playerUserId || null) : null,
+              bound_player_name:
+                maxUsers === 1 ? licenseRow.bound_player_name ?? (parsed.playerName || null) : null,
             })
             .eq("id", licenseRow.id);
         }
