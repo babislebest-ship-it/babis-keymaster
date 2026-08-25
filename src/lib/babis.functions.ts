@@ -283,7 +283,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
           id: z.string().uuid().optional().nullable(),
           name: z.string().trim().min(1).max(80),
           description: z.string().trim().max(500).default(""),
-          sourceCode: z.string().max(500000),
+          sourceCode: z.string(),
           requireLicense: z.boolean(),
           isActive: z.boolean(),
         })
