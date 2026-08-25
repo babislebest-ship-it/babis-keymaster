@@ -18,6 +18,7 @@ import {
   Shield,
   Trash2,
   UserCog,
+  Upload,
   Users,
   MessageSquare,
   ExternalLink,
@@ -362,6 +363,29 @@ function Dashboard() {
                   <h2 className="text-lg font-semibold">Source editor</h2>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => selectedScript && editScript(selectedScript)} disabled={!selectedScript}><Edit3 /> Load selected</Button>
+                    <Button variant="outline" onClick={() => document.getElementById("script-file-input")?.click()}><Upload /> Import file</Button>
+                    <input
+                      id="script-file-input"
+                      type="file"
+                      accept=".lua,.luau,.txt,.rbxm,text/plain"
+                      className="hidden"
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (!file) return;
+                        try {
+                          const text = await file.text();
+                          setScriptForm((current) => ({
+                            ...current,
+                            sourceCode: text,
+                            name: current.name || file.name.replace(/\.[^.]+$/, ""),
+                          }));
+                          toast.success("File imported", { description: `${file.name} — ${text.length} characters` });
+                        } catch {
+                          toast.error("Could not read that file");
+                        }
+                      }}
+                    />
                     <Button onClick={() => action.mutate({ type: "saveScript", payload: scriptForm })} disabled={!can.scripts || action.isPending}>
                       <Save /> Save
                     </Button>
