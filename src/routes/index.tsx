@@ -18,6 +18,7 @@ import {
   Shield,
   Trash2,
   UserCog,
+  Upload,
   Users,
   MessageSquare,
   ExternalLink,
