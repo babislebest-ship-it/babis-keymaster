@@ -1,0 +1,1 @@
+ALTER TABLE public.scripts DROP CONSTRAINT IF EXISTS scripts_source_length;
