@@ -22,6 +22,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           playerUserId: string;
           playerName: string;
           placeId: string;
+          universeId: string;
           jobId: string;
           executorName: string;
         };
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               playerUserId: z.string().trim().max(80).optional().default(""),
               playerName: z.string().trim().max(80).optional().default(""),
               placeId: z.string().trim().max(80).optional().default(""),
+              universeId: z.string().trim().max(80).optional().default(""),
               jobId: z.string().trim().max(120).optional().default(""),
               executorName: z.string().trim().max(80).optional().default(""),
             })
@@ -46,13 +48,47 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         const ip = forwarded.split(",")[0]?.trim() || request.headers.get("cf-connecting-ip") || "unknown";
         const ipHash = createHash("sha256").update(`babis:${ip}`).digest("hex");
 
-        const { data: script, error: scriptError } = await db
-          .from("scripts")
-          .select("*")
-          .eq("public_id", publicId)
-          .eq("is_active", true)
-          .maybeSingle();
+        // "auto" = universal hub loader: pick the script linked to this Roblox game.
+        let script: any = null;
+        let scriptError: { message: string } | null = null;
+        if (publicId === "auto") {
+          const placeId = parsed.placeId.replace(/\D/g, "");
+          const universeId = parsed.universeId.replace(/\D/g, "");
+          if (placeId) {
+            const { data, error } = await db
+              .from("scripts")
+              .select("*")
+              .eq("is_active", true)
+              .eq("place_id", placeId)
+              .limit(1);
+            if (error) scriptError = error;
+            script = (data ?? [])[0] ?? null;
+          }
+          if (!script && !scriptError && universeId) {
+            const { data, error } = await db
+              .from("scripts")
+              .select("*")
+              .eq("is_active", true)
+              .eq("universe_id", universeId)
+              .limit(1);
+            if (error) scriptError = error;
+            script = (data ?? [])[0] ?? null;
+          }
+          if (!scriptError && !script) {
+            return reply({ ok: false, message: "No script is linked to this game yet." }, 404);
+          }
+        } else {
+          const { data, error } = await db
+            .from("scripts")
+            .select("*")
+            .eq("public_id", publicId)
+            .eq("is_active", true)
+            .maybeSingle();
+          script = data;
+          scriptError = error;
+        }
         if (scriptError) return reply({ ok: false, message: scriptError.message }, 500);
+
         if (!script) return reply({ ok: false, message: "Script not found or disabled." }, 404);
 
         const { findMatchingBan } = await import("@/lib/ban-match.server");
@@ -281,7 +317,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           }
         }
 
-        return reply({ ok: true, source: script.source_code, sessionToken: session.session_token });
+        return reply({ ok: true, source: script.source_code, scriptName: script.name, sessionToken: session.session_token });
       },
       OPTIONS: async () =>
         new Response(null, {

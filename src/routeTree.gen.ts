@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
 import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
@@ -29,6 +30,11 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
+  id: '/api/public/hub',
+  path: '/api/public/hub',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHeartbeatRoute = ApiPublicHeartbeatRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
+  '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
+  '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
+  '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
+    | '/api/public/hub'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
+    | '/api/public/hub'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
+    | '/api/public/hub'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
+  ApiPublicHubRoute: typeof ApiPublicHubRoute
   ApiPublicRunPublicIdRoute: typeof ApiPublicRunPublicIdRoute
   ApiPublicLoaderPublicIdRoute: typeof ApiPublicLoaderPublicIdRoute
 }
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hub': {
+      id: '/api/public/hub'
+      path: '/api/public/hub'
+      fullPath: '/api/public/hub'
+      preLoaderRoute: typeof ApiPublicHubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/heartbeat': {
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
+  ApiPublicHubRoute: ApiPublicHubRoute,
   ApiPublicRunPublicIdRoute: ApiPublicRunPublicIdRoute,
   ApiPublicLoaderPublicIdRoute: ApiPublicLoaderPublicIdRoute,
 }

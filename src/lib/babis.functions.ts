@@ -283,22 +283,44 @@ export const dashboardAction = createServerFn({ method: "POST" })
           id: z.string().uuid().optional().nullable(),
           name: z.string().trim().min(1).max(80),
           description: z.string().trim().max(500).default(""),
+          gameUrl: z.string().trim().max(300).default(""),
           sourceCode: z.string(),
           requireLicense: z.boolean(),
           isActive: z.boolean(),
         })
         .parse(data.payload);
+
+      // Turn the pasted Roblox game link into ids the loader can match in-game.
+      let placeId: string | null = null;
+      let universeId: string | null = null;
+      if (payload.gameUrl) {
+        const match = payload.gameUrl.match(/(?:games|share\?code=)?\D*?(\d{6,})/);
+        placeId = match?.[1] ?? null;
+        if (!placeId) throw new Error("That Roblox game link does not contain a game id.");
+        try {
+          const response = await fetch(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+          if (response.ok) {
+            const body = (await response.json()) as { universeId?: number };
+            if (body?.universeId) universeId = String(body.universeId);
+          }
+        } catch {}
+      }
+
+      const fields = {
+        name: payload.name,
+        description: payload.description,
+        game_url: payload.gameUrl,
+        place_id: placeId,
+        universe_id: universeId,
+        source_code: payload.sourceCode,
+        require_license: payload.requireLicense,
+        is_active: payload.isActive,
+      };
+
       if (payload.id) {
         const { data: updated, error } = await db
           .from("scripts")
-          .update({
-            name: payload.name,
-            description: payload.description,
-            source_code: payload.sourceCode,
-            require_license: payload.requireLicense,
-            is_active: payload.isActive,
-            updated_by: userId,
-          })
+          .update({ ...fields, updated_by: userId })
           .eq("id", payload.id)
           .select("*")
           .single();
@@ -308,20 +330,13 @@ export const dashboardAction = createServerFn({ method: "POST" })
 
       const { data: created, error } = await db
         .from("scripts")
-        .insert({
-          owner_id: userId,
-          created_by: userId,
-          name: payload.name,
-          description: payload.description,
-          source_code: payload.sourceCode,
-          require_license: payload.requireLicense,
-          is_active: payload.isActive,
-        })
+        .insert({ ...fields, owner_id: userId, created_by: userId })
         .select("*")
         .single();
       if (error) throw new Error(error.message);
       return { ok: true, script: created };
     }
+
 
     if (data.type === "deleteScript") {
       if (!has("scripts")) throw new Error("Missing script management permission.");
