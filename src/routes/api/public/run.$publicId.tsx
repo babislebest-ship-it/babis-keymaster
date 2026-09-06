@@ -317,7 +317,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           }
         }
 
-        return reply({ ok: true, source: script.source_code, sessionToken: session.session_token });
+        return reply({ ok: true, source: script.source_code, scriptName: script.name, sessionToken: session.session_token });
       },
       OPTIONS: async () =>
         new Response(null, {
