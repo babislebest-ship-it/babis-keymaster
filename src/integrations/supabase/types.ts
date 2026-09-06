@@ -527,13 +527,16 @@ export type Database = {
           created_at: string
           created_by: string
           description: string
+          game_url: string
           id: string
           is_active: boolean
           name: string
           owner_id: string
+          place_id: string | null
           public_id: string
           require_license: boolean
           source_code: string
+          universe_id: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -541,13 +544,16 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string
+          game_url?: string
           id?: string
           is_active?: boolean
           name: string
           owner_id: string
+          place_id?: string | null
           public_id?: string
           require_license?: boolean
           source_code?: string
+          universe_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -555,13 +561,16 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string
+          game_url?: string
           id?: string
           is_active?: boolean
           name?: string
           owner_id?: string
+          place_id?: string | null
           public_id?: string
           require_license?: boolean
           source_code?: string
+          universe_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
