@@ -26,7 +26,7 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/" });
+      if (data.session) navigate({ to: "/panel" });
     });
   }, [navigate]);
 
@@ -42,7 +42,7 @@ function AuthPage() {
       await initialize({ data: { username: u } });
       await queryClient.invalidateQueries();
       toast.success("Signed in");
-      navigate({ to: "/" });
+      navigate({ to: "/panel" });
     } catch (err) {
       toast.error("Sign in failed", { description: (err as Error).message });
     } finally {

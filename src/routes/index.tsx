@@ -1,256 +1,150 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Ban,
   Check,
-  Clipboard,
-  Code2,
+  ChevronDown,
   Copy,
-  Edit3,
-  History,
-  KeyRound,
-  LogOut,
+  Instagram,
   Link2,
-  Menu,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  UserCog,
-  Upload,
-  Users,
+  LogIn,
   MessageSquare,
-  ExternalLink,
+  Menu,
+  Pencil,
+  Play,
+  Plus,
+  Shield,
+  Star,
+  Trash2,
   X,
+  Youtube,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { dashboardAction, getAccountState, getDashboardData, refreshPresence } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  deleteReview,
+  getSiteContent,
+  getViewerState,
+  registerVisitor,
+  saveReview,
+  saveSiteContent,
+} from "@/lib/shop.functions";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Babis Script — Premium Roblox Scripts & Lifetime Keys" },
+      {
+        name: "description",
+        content:
+          "Babis Script premium shop: copy Roblox scripts in one click, browse features and videos, read player reviews and grab lifetime or weekly license keys.",
+      },
+      { property: "og:title", content: "Babis Script — Premium Roblox Scripts & Lifetime Keys" },
+      {
+        property: "og:description",
+        content: "One-click script copies, premium license keys, videos, reviews and FAQ from the Babis Script team.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: ShopPage,
 });
 
-function Index() {
-  const [sessionReady, setSessionReady] = useState(false);
+type Row = Record<string, any>;
+
+const SECTIONS: { key: string; label: string }[] = [
+  { key: "scripts", label: "Scripts" },
+  { key: "premium", label: "Premium" },
+  { key: "videos", label: "Videos" },
+  { key: "reviews", label: "Reviews" },
+  { key: "faq", label: "FAQ" },
+  { key: "social", label: "Social" },
+];
+
+const usernameToEmail = (u: string) => `${u.trim().toLowerCase()}@babis.local`;
+
+function embedUrl(url: string) {
+  if (!url) return "";
+  const yt = url.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
+  if (yt && /youtu/.test(url)) return `https://www.youtube.com/embed/${yt[1]}`;
+  return url;
+}
+
+function ShopPage() {
+  const queryClient = useQueryClient();
+  const loadContent = useServerFn(getSiteContent);
+  const loadViewer = useServerFn(getViewerState);
+  const mutateContent = useServerFn(saveSiteContent);
+  const submitReview = useServerFn(saveReview);
+  const removeReview = useServerFn(deleteReview);
+  const register = useServerFn(registerVisitor);
+
+  const [menuOpen, setMenuOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const navigate = useNavigate();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
+  const [form, setForm] = useState({ username: "", password: "", confirm: "" });
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, body: "" });
+  const [editor, setEditor] = useState<{ table: string; row: Row | null } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSignedIn(Boolean(data.session));
-      setSessionReady(true);
-      if (!data.session) navigate({ to: "/auth" });
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
       setSignedIn(Boolean(session));
-      setSessionReady(true);
-      if (!session) navigate({ to: "/auth" });
+      queryClient.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
-  }, [navigate]);
+  }, [queryClient]);
 
-  if (!sessionReady) return <LoadingShell />;
-  if (!signedIn) return <LoadingShell />;
-  return <Dashboard />;
-}
-
-function LoadingShell() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="app-panel w-full max-w-sm rounded-lg p-6 text-center">
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Shield className="size-6" />
-        </div>
-        <p className="text-sm text-muted-foreground">Loading Babis Premium…</p>
-      </div>
-    </div>
-  );
-}
-
-function Landing() {
-  return (
-    <main className="min-h-screen bg-background px-4 py-4 text-foreground sm:px-6 lg:px-8">
-      <section className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-6xl items-center gap-8 py-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div>
-          <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-            <Shield className="size-4 text-primary" />
-            Babis Premium
-          </div>
-          <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-            Script access control for Roblox experiences.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Store Luau scripts, issue timed license keys, manage staff permissions, block abuse, and monitor live launches from a responsive dashboard.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link to="/auth">Sign in</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link to="/auth" search={{ mode: "signup" } as never}>
-                Create account
-              </Link>
-            </Button>
-          </div>
-        </div>
-        <div className="app-panel rounded-lg p-4 sm:p-6">
-          <div className="grid gap-3">
-            {[
-              ["Scripts", "Save, edit, and rotate loader URLs."],
-              ["Licenses", "Generate permanent or timed keys."],
-              ["Players", "View live sessions, kicks, bans, and history."],
-              ["Staff", "Owner-managed permissions for team accounts."],
-            ].map(([title, body]) => (
-              <div key={title} className="rounded-md border border-border bg-muted p-4">
-                <div className="text-sm font-semibold text-foreground">{title}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{body}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-type ScriptRow = Record<string, any>;
-type LicenseRow = Record<string, any>;
-type SessionRow = Record<string, any>;
-
-const emptyScript = {
-  id: null as string | null,
-  name: "",
-  description: "",
-  sourceCode: "",
-  requireLicense: true,
-  isActive: true,
-};
-
-function Dashboard() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const getAccount = useServerFn(getAccountState);
-  const getDashboard = useServerFn(getDashboardData);
-  const runDashboardAction = useServerFn(dashboardAction);
-  const refreshPresenceFn = useServerFn(refreshPresence);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [activeScriptId, setActiveScriptId] = useState<string>("");
-  const [scriptForm, setScriptForm] = useState(emptyScript);
-  const [licenseMinutes, setLicenseMinutes] = useState("0");
-  const [licenseLabel, setLicenseLabel] = useState("");
-  const [licenseSeats, setLicenseSeats] = useState("1");
-  const [banReason, setBanReason] = useState("Access revoked by Babis staff.");
-  const [banForm, setBanForm] = useState({
-    playerName: "",
-    scope: "global" as "global" | "script",
-    scriptId: "",
-    duration: "0",
-    includeIp: false,
-    reason: "Access revoked by Babis staff.",
-  });
-  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
-  const [playerSearch, setPlayerSearch] = useState("");
-  const [presenceFilter, setPresenceFilter] = useState<"all" | "ingame" | "online" | "offline" | "watchlist">("all");
-  const [discordLink, setDiscordLink] = useState("");
-  const [staffUsername, setStaffUsername] = useState("");
-  const [staffPassword, setStaffPassword] = useState("");
-  const [staffPermissions, setStaffPermissions] = useState({
-    canManageScripts: true,
-    canManageLicenses: true,
-    canManageBans: false,
-    canManageUsers: false,
-    canViewLogs: true,
-  });
-
-  const account = useQuery({ queryKey: ["account"], queryFn: () => getAccount() });
-  const dashboard = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => getDashboard(),
+  const content = useQuery({ queryKey: ["site-content"], queryFn: () => loadContent() });
+  const viewer = useQuery({
+    queryKey: ["viewer", signedIn],
+    queryFn: () => loadViewer(),
+    enabled: signedIn,
     retry: false,
-    refetchInterval: 10000,
-    refetchOnWindowFocus: true,
   });
 
-  // Poll Roblox presence every 20s so known players show up as live
-  // even when they haven't re-executed the script.
-  useEffect(() => {
-    let cancelled = false;
-    const tick = () => refreshPresenceFn().catch(() => {}).finally(() => {
-      if (!cancelled) queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    });
-    tick();
-    const id = setInterval(tick, 20000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [refreshPresenceFn, queryClient]);
-  const data = dashboard.data as any;
-  const scripts: ScriptRow[] = data?.scripts ?? [];
-  const licenses: LicenseRow[] = data?.licenses ?? [];
-  const sessions: SessionRow[] = data?.sessions ?? [];
-  const history: any[] = data?.history ?? [];
-  const selectedScript = scripts.find((script) => script.id === activeScriptId) ?? scripts[0];
-  const selectedScriptId = selectedScript?.id ?? "";
-  const loader = selectedScript ? `loadstring(game:HttpGet("${window.location.origin}/api/public/loader/${selectedScript.public_id}", true))()` : "";
-  const scriptLicenses = licenses.filter((license) => license.script_id === selectedScriptId);
-  // Live = active AND heartbeat within 45s
-  const now = Date.now();
-  const isLive = (session: SessionRow) =>
-    session.status === "active" && now - new Date(session.last_seen_at).getTime() < 45_000;
-  const scriptSessions = sessions.filter((session) => session.script_id === selectedScriptId);
-  const liveSessions = sessions.filter(isLive);
-  const scriptNameById = (id: string) => scripts.find((s) => s.id === id)?.name ?? "—";
+  const data = (content.data ?? {}) as Row;
+  const items: Row[] = data.items ?? [];
+  const plans: Row[] = data.plans ?? [];
+  const faq: Row[] = data.faq ?? [];
+  const videos: Row[] = data.videos ?? [];
+  const links: Row[] = data.links ?? [];
+  const reviews: Row[] = data.reviews ?? [];
+  const tabs: Row[] = (data.tabs ?? []).filter((t: Row) => t.is_published);
+  const discord: string = data.discordInviteUrl ?? "https://discord.gg/75auNNfmhS";
+  const isOwner = Boolean((viewer.data as Row | undefined)?.isOwner);
+  const viewerId = (viewer.data as Row | undefined)?.userId as string | undefined;
 
-  useEffect(() => {
-    if (!activeScriptId && scripts[0]) setActiveScriptId(scripts[0].id);
-  }, [activeScriptId, scripts]);
+  const navTabs = useMemo(
+    () => (tabs.length ? tabs.map((t) => ({ key: t.section_key, label: t.label })) : SECTIONS),
+    [tabs],
+  );
 
-  const action = useMutation({
-    mutationFn: (payload: { type: string; payload?: Record<string, unknown> }) =>
-      runDashboardAction({ data: { type: payload.type, payload: payload.payload ?? {} } }),
-    onSuccess: (_result, variables) => {
-      toast.success("Action completed", { description: variables.type });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  const save = useMutation({
+    mutationFn: (payload: any) => mutateContent({ data: payload }),
+    onSuccess: () => {
+      toast.success("Saved");
+      setEditor(null);
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
     },
-    onError: (error) => toast.error("Action failed", { description: error.message }),
+    onError: (error: any) => toast.error("Could not save", { description: error.message }),
   });
 
-  useEffect(() => {
-    if (data?.discordInviteUrl) setDiscordLink((current) => current || String(data.discordInviteUrl));
-  }, [data?.discordInviteUrl]);
-
-  const can = useMemo(() => {
-    const roles = data?.roles ?? [];
-    const permission = data?.permissions ?? {};
-    const owner = roles.includes("owner");
-    return {
-      scripts: owner || permission.can_manage_scripts,
-      licenses: owner || permission.can_manage_licenses,
-      bans: owner || permission.can_manage_bans,
-      users: owner || permission.can_manage_users,
-      owner,
-      logs: owner || permission.can_view_logs,
-    };
-  }, [data]);
-
-  async function copyText(label: string, value: string) {
-    if (!value) return toast.error("Nothing to copy");
+  async function copy(value: string, id: string) {
+    if (!value) return toast.error("Nothing to copy yet");
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
     } catch {
       const area = document.createElement("textarea");
       area.value = value;
@@ -258,477 +152,540 @@ function Dashboard() {
       area.select();
       document.execCommand("copy");
       document.body.removeChild(area);
-      toast.success(`${label} copied`);
+    }
+    setCopied(id);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopied((c) => (c === id ? null : c)), 1600);
+  }
+
+  async function handleAuth(event: React.FormEvent) {
+    event.preventDefault();
+    const u = form.username.trim();
+    if (u.length < 3) return toast.error("Username must be at least 3 characters");
+    if (form.password.length < 6) return toast.error("Password must be at least 6 characters");
+    if (authMode === "signup" && form.password !== form.confirm) return toast.error("Passwords do not match");
+    setBusy(true);
+    try {
+      const email = usernameToEmail(u);
+      if (authMode === "signup") {
+        const { error } = await supabase.auth.signUp({ email, password: form.password });
+        if (error) throw error;
+        await supabase.auth.signInWithPassword({ email, password: form.password });
+        await register({ data: { username: u } });
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: form.password });
+        if (error) throw error;
+      }
+      toast.success(authMode === "signup" ? "Account created" : "Welcome back");
+      setAuthOpen(false);
+      setForm({ username: "", password: "", confirm: "" });
+    } catch (error: any) {
+      toast.error("Authentication failed", { description: error.message });
+    } finally {
+      setBusy(false);
     }
   }
 
-  function editScript(script: ScriptRow) {
-    setScriptForm({
-      id: script.id,
-      name: script.name ?? "",
-      description: script.description ?? "",
-      sourceCode: script.source_code ?? "",
-      requireLicense: Boolean(script.require_license),
-      isActive: Boolean(script.is_active),
-    });
-    setActiveScriptId(script.id);
+  const reviewMutation = useMutation({
+    mutationFn: () => submitReview({ data: { rating: reviewDraft.rating, body: reviewDraft.body.trim() } }),
+    onSuccess: () => {
+      toast.success("Review posted");
+      setReviewDraft({ rating: 5, body: "" });
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
+    },
+    onError: (error: any) => toast.error("Could not post review", { description: error.message }),
+  });
+
+  const reviewDelete = useMutation({
+    mutationFn: (id: string) => removeReview({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Review removed");
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
+    },
+    onError: (error: any) => toast.error("Could not remove", { description: error.message }),
+  });
+
+  const averageRating = reviews.length
+    ? (reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length).toFixed(1)
+    : "—";
+
+  function scrollTo(key: string) {
     setMenuOpen(false);
-  }
-
-  async function signOut() {
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  }
-
-  if (account.isLoading || dashboard.isLoading) return <LoadingShell />;
-  if (dashboard.error) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="app-panel max-w-md rounded-lg p-6 text-center">
-          <Shield className="mx-auto mb-4 size-10 text-primary" />
-          <h1 className="text-xl font-semibold">Dashboard access is not ready</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Ask the owner to grant your account staff permissions.</p>
-          <div className="mt-5 flex justify-center gap-2">
-            <Button variant="outline" onClick={signOut}>Sign out</Button>
-          </div>
-        </div>
-      </main>
-    );
+    document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="dashboard-grid min-h-screen">
-        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 bg-sidebar p-4 md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto md:border-r md:border-sidebar-border`}>
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <div className="text-lg font-semibold text-sidebar-foreground">Babis</div>
-              <div className="text-xs text-muted-foreground">Premium control panel</div>
-            </div>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(false)}><X /></Button>
+      <div className="shop-aurora" aria-hidden />
+
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <button
+            className="hamburger group"
+            aria-label="Open menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <span /><span /><span />
+          </button>
+          <div className="flex items-center gap-2 font-semibold tracking-tight">
+            <Shield className="size-5 text-primary" />
+            Babis Script
           </div>
-          <Button className="mb-4 w-full" onClick={() => { setScriptForm(emptyScript); setMenuOpen(false); }}>
-            <Plus /> New script
-          </Button>
-          <div className="space-y-2">
-            {scripts.map((script) => (
-              <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
-                <button onClick={() => editScript(script)} className="flex-1 min-w-0 p-3 text-left">
-                  <div className="flex items-center gap-2 text-sm font-semibold"><Code2 className="size-4" />{script.name}</div>
-                  <div className="mt-1 text-xs opacity-80">{script.require_license ? "License required" : "Open loader"}</div>
-                </button>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (!can.scripts) return toast.error("Missing script permission");
-                    if (!confirm(`Delete script "${script.name}"? This cannot be undone.`)) return;
-                    action.mutate({ type: "deleteScript", payload: { id: script.id } });
-                  }}
-                  className="px-3 opacity-70 hover:opacity-100"
-                  title="Delete script"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+          <div className="flex items-center gap-2">
+            {signedIn ? (
+              isOwner ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/panel">Panel</Link>
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => supabase.auth.signOut()}>
+                  Sign out
+                </Button>
+              )
+            ) : (
+              <Button size="sm" onClick={() => { setAuthMode("signup"); setAuthOpen(true); }}>
+                <LogIn className="mr-1 size-4" /> Account
+              </Button>
+            )}
           </div>
-        </aside>
+        </div>
+      </header>
 
-        <section className="min-w-0 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Button variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(true)}><Menu /></Button>
-              <div>
-                <h1 className="text-2xl font-semibold sm:text-3xl">Script Manager</h1>
-                <p className="text-sm text-muted-foreground">Signed in as {data?.profile?.username ?? "staff"}</p>
+      {/* Slide-in menu */}
+      <div className={`shop-drawer-backdrop ${menuOpen ? "is-open" : ""}`} onClick={() => setMenuOpen(false)} />
+      <nav className={`shop-drawer ${menuOpen ? "is-open" : ""}`}>
+        <div className="flex items-center justify-between px-5 py-4">
+          <span className="text-sm font-semibold text-muted-foreground">Menu</span>
+          <button onClick={() => setMenuOpen(false)} aria-label="Close menu">
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-1 px-3">
+          {navTabs.map((tab, index) => (
+            <button
+              key={tab.key + index}
+              className="shop-drawer-link"
+              style={{ animationDelay: `${index * 45}ms` }}
+              onClick={() => scrollTo(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {isOwner ? (
+          <div className="mt-4 border-t border-border px-3 pt-4">
+            <Button className="w-full" size="sm" variant="outline" onClick={() => { setMenuOpen(false); setEditor({ table: "site_tabs", row: null }); }}>
+              <Plus className="mr-1 size-4" /> Add menu tab
+            </Button>
+          </div>
+        ) : null}
+      </nav>
+
+      {/* Hero */}
+      <section className="relative mx-auto max-w-6xl px-4 pb-14 pt-16 text-center sm:px-6 sm:pt-24">
+        <div className="reveal inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-1.5 text-xs text-muted-foreground">
+          <span className="size-2 animate-pulse rounded-full bg-primary" /> Instant license delivery
+        </div>
+        <h1 className="reveal mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl" style={{ animationDelay: "80ms" }}>
+          Babis Script <span className="shop-gradient-text">Premium Shop</span>
+        </h1>
+        <p className="reveal mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg" style={{ animationDelay: "160ms" }}>
+          Copy any script in one tap, unlock every premium feature with a license key, and join thousands of players on Discord.
+        </p>
+        <div className="reveal mt-8 flex flex-wrap justify-center gap-3" style={{ animationDelay: "240ms" }}>
+          <Button size="lg" onClick={() => scrollTo("scripts")}>Browse scripts</Button>
+          <Button size="lg" variant="outline" onClick={() => scrollTo("premium")}>See premium pricing</Button>
+        </div>
+      </section>
+
+      {/* Scripts */}
+      <Section id="scripts" title="Scripts" subtitle="Tap copy and paste it in your executor." onAdd={isOwner ? () => setEditor({ table: "shop_items", row: null }) : undefined}>
+        {items.length === 0 ? <Empty text="No scripts published yet." /> : null}
+        <div className="grid gap-5 md:grid-cols-2">
+          {items.map((item, index) => (
+            <article key={item.id} className="reveal shop-card" style={{ animationDelay: `${index * 60}ms` }}>
+              {item.video_url ? (
+                <div className="mb-4 aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
+                  <iframe src={embedUrl(item.video_url)} title={item.title} className="size-full" allowFullScreen loading="lazy" />
+                </div>
+              ) : null}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">{item.title}</h3>
+                  {item.badge ? <span className="shop-badge">{item.badge}</span> : null}
+                </div>
+                {item.price_label ? <span className="text-sm font-semibold text-primary">{item.price_label}</span> : null}
               </div>
+              {item.description ? <p className="mt-2 text-sm text-muted-foreground">{item.description}</p> : null}
+              {(item.features ?? []).length ? (
+                <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                  {(item.features as string[]).map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <Button className="mt-4 w-full" onClick={() => copy(item.loader_command, item.id)}>
+                {copied === item.id ? <Check className="mr-1 size-4" /> : <Copy className="mr-1 size-4" />}
+                {copied === item.id ? "Copied!" : "Copy script"}
+              </Button>
+              <OwnerRowActions owner={isOwner} onEdit={() => setEditor({ table: "shop_items", row: item })} onDelete={() => save.mutate({ table: "shop_items", op: "delete", id: item.id })} />
+            </article>
+          ))}
+        </div>
+      </Section>
+
+      {/* Premium */}
+      <Section id="premium" title="Premium" subtitle="Instant keys, delivered on Discord." onAdd={isOwner ? () => setEditor({ table: "pricing_plans", row: null }) : undefined}>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {plans.filter((p) => p.is_published || isOwner).map((plan, index) => (
+            <article key={plan.id} className={`reveal shop-card ${plan.highlight ? "shop-card-highlight" : ""}`} style={{ animationDelay: `${index * 60}ms` }}>
+              <div className="text-2xl">{plan.emoji}</div>
+              <h3 className="mt-2 text-base font-semibold">{plan.name}</h3>
+              <div className="mt-1 text-2xl font-bold text-primary">{plan.price_label}</div>
+              <div className="text-xs text-muted-foreground">{plan.subtitle}</div>
+              <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">
+                {(plan.perks ?? []).map((perk: string) => (
+                  <li key={perk} className="flex items-start gap-2">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {perk}
+                  </li>
+                ))}
+              </ul>
+              <Button asChild className="mt-5 w-full" variant={plan.highlight ? "default" : "outline"}>
+                <a href={plan.cta_url || discord} target="_blank" rel="noreferrer">{plan.cta_label || "Get it on Discord"}</a>
+              </Button>
+              <OwnerRowActions owner={isOwner} onEdit={() => setEditor({ table: "pricing_plans", row: plan })} onDelete={() => save.mutate({ table: "pricing_plans", op: "delete", id: plan.id })} />
+            </article>
+          ))}
+        </div>
+      </Section>
+
+      {/* Videos */}
+      <Section id="videos" title="Videos" subtitle="Showcases and tutorials." onAdd={isOwner ? () => setEditor({ table: "site_videos", row: null }) : undefined}>
+        {videos.length === 0 ? <Empty text="No videos yet." /> : null}
+        <div className="grid gap-5 md:grid-cols-2">
+          {videos.map((video, index) => (
+            <article key={video.id} className="reveal shop-card" style={{ animationDelay: `${index * 60}ms` }}>
+              <div className="aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
+                <iframe src={embedUrl(video.video_url)} title={video.title || "Video"} className="size-full" allowFullScreen loading="lazy" />
+              </div>
+              <h3 className="mt-3 flex items-center gap-2 text-base font-semibold"><Play className="size-4 text-primary" />{video.title}</h3>
+              {video.description ? <p className="mt-1 text-sm text-muted-foreground">{video.description}</p> : null}
+              <OwnerRowActions owner={isOwner} onEdit={() => setEditor({ table: "site_videos", row: video })} onDelete={() => save.mutate({ table: "site_videos", op: "delete", id: video.id })} />
+            </article>
+          ))}
+        </div>
+      </Section>
+
+      {/* Reviews */}
+      <Section id="reviews" title="Reviews" subtitle={`${reviews.length} review(s) · average ${averageRating}/5`}>
+        <div className="shop-card mb-6">
+          {signedIn ? (
+            <>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} onClick={() => setReviewDraft((d) => ({ ...d, rating: n }))} aria-label={`${n} stars`}>
+                    <Star className={`size-6 transition-transform hover:scale-110 ${n <= reviewDraft.rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                  </button>
+                ))}
+              </div>
+              <Textarea
+                className="mt-3"
+                rows={3}
+                placeholder="Tell everyone what you think about Babis Script…"
+                value={reviewDraft.body}
+                onChange={(e) => setReviewDraft((d) => ({ ...d, body: e.target.value }))}
+              />
+              <Button className="mt-3" disabled={reviewMutation.isPending} onClick={() => reviewMutation.mutate()}>
+                Post review
+              </Button>
+            </>
+          ) : (
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-sm text-muted-foreground">Create a free account to leave a review.</p>
+              <Button onClick={() => { setAuthMode("signup"); setAuthOpen(true); }}>Create account</Button>
             </div>
-            <Button variant="outline" onClick={signOut}><LogOut /> Sign out</Button>
-          </header>
+          )}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {reviews.map((review, index) => (
+            <article key={review.id} className="reveal shop-card" style={{ animationDelay: `${index * 40}ms` }}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">{review.author_name}</span>
+                <span className="flex">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className={`size-4 ${i < Number(review.rating) ? "fill-primary text-primary" : "text-muted-foreground/40"}`} />
+                  ))}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{review.body}</p>
+              {isOwner || review.user_id === viewerId ? (
+                <button className="mt-3 inline-flex items-center gap-1 text-xs text-destructive" onClick={() => reviewDelete.mutate(review.id)}>
+                  <Trash2 className="size-3" /> Delete
+                </button>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </Section>
 
-          <Tabs defaultValue="scripts" className="min-w-0">
-            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
-              <TabsTrigger value="scripts"><Plus className="mr-2 size-4" />Add</TabsTrigger>
-              <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
-              <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
-              <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
-              <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
-              <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
-            </TabsList>
+      {/* FAQ */}
+      <Section id="faq" title="FAQ" subtitle="Everything you need to know." onAdd={isOwner ? () => setEditor({ table: "site_faq", row: null }) : undefined}>
+        {faq.length === 0 ? <Empty text="No questions yet." /> : null}
+        <div className="space-y-3">
+          {faq.map((entry, index) => (
+            <div key={entry.id} className="reveal shop-card !p-0" style={{ animationDelay: `${index * 40}ms` }}>
+              <button
+                className="flex w-full items-center justify-between gap-3 p-5 text-left font-medium"
+                onClick={() => setOpenFaq((c) => (c === entry.id ? null : entry.id))}
+              >
+                {entry.question}
+                <ChevronDown className={`size-5 shrink-0 transition-transform duration-300 ${openFaq === entry.id ? "rotate-180 text-primary" : ""}`} />
+              </button>
+              <div className={`faq-answer ${openFaq === entry.id ? "is-open" : ""}`}>
+                <div className="px-5 pb-5 text-sm text-muted-foreground">{entry.answer}</div>
+              </div>
+              <OwnerRowActions owner={isOwner} className="px-5 pb-4" onEdit={() => setEditor({ table: "site_faq", row: entry })} onDelete={() => save.mutate({ table: "site_faq", op: "delete", id: entry.id })} />
+            </div>
+          ))}
+        </div>
+      </Section>
 
-            <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold">Source editor</h2>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => selectedScript && editScript(selectedScript)} disabled={!selectedScript}><Edit3 /> Load selected</Button>
-                    <Button variant="outline" onClick={() => document.getElementById("script-file-input")?.click()}><Upload /> Import file</Button>
-                    <input
-                      id="script-file-input"
-                      type="file"
-                      accept=".lua,.luau,.txt,.rbxm,text/plain"
-                      className="hidden"
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = "";
-                        if (!file) return;
-                        try {
-                          const text = await file.text();
-                          setScriptForm((current) => ({
-                            ...current,
-                            sourceCode: text,
-                            name: current.name || file.name.replace(/\.[^.]+$/, ""),
-                          }));
-                          toast.success("File imported", { description: `${file.name} — ${text.length} characters` });
-                        } catch {
-                          toast.error("Could not read that file");
-                        }
-                      }}
-                    />
-                    <Button onClick={() => action.mutate({ type: "saveScript", payload: scriptForm })} disabled={!can.scripts || action.isPending}>
-                      <Save /> Save
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">Script name<Input value={scriptForm.name} onChange={(event) => setScriptForm({ ...scriptForm, name: event.target.value })} /></label>
-                  <label className="grid gap-1 text-sm">Description<Input value={scriptForm.description} onChange={(event) => setScriptForm({ ...scriptForm, description: event.target.value })} /></label>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Require license<Switch checked={scriptForm.requireLicense} onCheckedChange={(value) => setScriptForm({ ...scriptForm, requireLicense: value })} /></label>
-                  <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Active<Switch checked={scriptForm.isActive} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isActive: value })} /></label>
-                </div>
-                <Textarea className="mt-3 min-h-[430px] resize-y text-sm" spellCheck={false} value={scriptForm.sourceCode} onChange={(event) => setScriptForm({ ...scriptForm, sourceCode: event.target.value })} placeholder="Paste authorized Luau source here" />
-              </div>
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Final loader</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Copy status appears after every button action.</p>
-                <div className="mono-box mt-4 rounded-md border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">{loader || "Save a script first."}</div>
-                <Button className="mt-3 w-full" onClick={() => copyText("Loader", loader)} disabled={!loader}><Copy /> Copy loadstring</Button>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <Metric label="Licenses" value={scriptLicenses.length} />
-                  <Metric label="Live" value={scriptSessions.filter((s) => s.status === "active").length} />
-                </div>
-              </div>
-            </TabsContent>
+      {/* Social */}
+      <Section id="social" title="Social media" subtitle="Follow Babis Script everywhere." onAdd={isOwner ? () => setEditor({ table: "site_links", row: null }) : undefined}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {links.map((link, index) => {
+            const Icon = link.platform === "youtube" ? Youtube : link.platform === "instagram" ? Instagram : link.platform === "discord" ? MessageSquare : Link2;
+            return (
+              <article key={link.id} className="reveal shop-card" style={{ animationDelay: `${index * 50}ms` }}>
+                <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-3">
+                  <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="size-5" /></span>
+                  <span>
+                    <span className="block text-sm font-semibold">{link.label || link.platform}</span>
+                    <span className="block text-xs text-muted-foreground">{link.description}</span>
+                  </span>
+                </a>
+                <OwnerRowActions owner={isOwner} onEdit={() => setEditor({ table: "site_links", row: link })} onDelete={() => save.mutate({ table: "site_links", op: "delete", id: link.id })} />
+              </article>
+            );
+          })}
+          <a href={discord} target="_blank" rel="noreferrer" className="reveal shop-card flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessageSquare className="size-5" /></span>
+            <span>
+              <span className="block text-sm font-semibold">Discord</span>
+              <span className="block text-xs text-muted-foreground">Buy keys and get support</span>
+            </span>
+          </a>
+        </div>
+      </Section>
 
-            <TabsContent value="licenses" className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Create license</h2>
-                <label className="mt-4 grid gap-1 text-sm">Script<Select value={selectedScriptId} onValueChange={setActiveScriptId}><SelectTrigger><SelectValue placeholder="Choose script" /></SelectTrigger><SelectContent>{scripts.map((script) => <SelectItem key={script.id} value={script.id}>{script.name}</SelectItem>)}</SelectContent></Select></label>
-                <label className="mt-3 grid gap-1 text-sm">Label<Input value={licenseLabel} onChange={(event) => setLicenseLabel(event.target.value)} placeholder="Customer or note" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Duration<Select value={licenseMinutes} onValueChange={setLicenseMinutes}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">Permanent</SelectItem><SelectItem value="15">15 minutes</SelectItem><SelectItem value="60">1 hour</SelectItem><SelectItem value="1440">1 day</SelectItem><SelectItem value="10080">7 days</SelectItem><SelectItem value="43200">30 days</SelectItem></SelectContent></Select></label>
-                <label className="mt-3 grid gap-1 text-sm">Users allowed<Select value={licenseSeats} onValueChange={setLicenseSeats}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">1 user (personal key)</SelectItem><SelectItem value="2">2 users</SelectItem><SelectItem value="3">3 users</SelectItem><SelectItem value="5">5 users</SelectItem><SelectItem value="10">10 users</SelectItem><SelectItem value="25">25 users</SelectItem><SelectItem value="100">100 users</SelectItem><SelectItem value="0">Unlimited users</SelectItem></SelectContent></Select></label>
-                <p className="mt-2 text-xs text-muted-foreground">Each different player counts as one slot. Unlimited keys work like a public premium key.</p>
-                <Button className="mt-4 w-full" disabled={!selectedScriptId || !can.licenses} onClick={() => action.mutate({ type: "createLicense", payload: { scriptId: selectedScriptId, label: licenseLabel, durationMinutes: licenseMinutes === "0" ? null : Number(licenseMinutes), maxUsers: Number(licenseSeats) } })}><KeyRound /> Generate key</Button>
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg">
-                <ResponsiveRows rows={scriptLicenses} empty="No licenses yet." render={(license) => (
-                  <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7rem_13rem] lg:items-center">
-                    <div className="min-w-0"><div className="mono-box font-mono text-sm">{license.license_key}</div><div className="mt-1 text-xs text-muted-foreground">{license.label || "Untitled"} · {license.bound_player_name || "unused"}</div></div>
-                    <div className="text-sm text-muted-foreground"><div className="capitalize">{license.status}</div><div className="text-xs">{license.seat_count ?? 0}/{license.max_users ? license.max_users : "∞"} users</div></div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="text-xs text-muted-foreground">{formatTimeLeft(license.expires_at)}</div>
-                      <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" disabled={!can.licenses} onClick={() => { const value = prompt("Maximum users for this key (0 = unlimited)", String(license.max_users ?? 0)); if (value === null) return; const parsedValue = Number(value); if (!Number.isFinite(parsedValue) || parsedValue < 0) return; action.mutate({ type: "setLicenseLimit", payload: { id: license.id, maxUsers: Math.floor(parsedValue) } }); }}>Limit</Button><Button size="sm" variant="outline" disabled={!can.licenses} onClick={() => { if (!confirm("Free every user slot on this key?")) return; action.mutate({ type: "resetLicenseSeats", payload: { id: license.id } }); }}>Reset users</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button><Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this license key?")) return; action.mutate({ type: "deleteLicense", payload: { id: license.id } }); }}><Trash2 />Delete</Button></div>
-                    </div>
-                  </div>
-                )} />
-              </div>
-            </TabsContent>
+      <footer className="border-t border-border/60 px-4 py-10 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} Babis Script · <Link to="/auth" className="underline">Staff sign in</Link>
+      </footer>
 
-            <TabsContent value="players" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-              <div className="app-panel overflow-hidden rounded-lg">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
-                  <h2 className="text-lg font-semibold">Live players ({liveSessions.length})</h2>
-                  <div className="text-xs text-muted-foreground">Auto-refresh every 10s · stale after 45s</div>
-                </div>
-                <ResponsiveRows rows={liveSessions} empty="No live players right now." render={(session) => {
-                  const draft = messageDrafts[session.id] ?? "";
-                  const joinUrl = session.place_id && session.job_id
-                    ? `roblox://experiences/start?placeId=${session.place_id}&gameInstanceId=${session.job_id}`
-                    : "";
-                  return (
-                    <div className="grid gap-3 p-4">
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                        <div>
-                          <div className="font-semibold">{session.player_name || "Unknown"} <span className="ml-2 text-xs font-normal text-muted-foreground">[{scriptNameById(session.script_id)}]</span></div>
-                          <div className="text-xs text-muted-foreground">
-                            UserId {session.player_user_id || "n/a"} · {session.executor_name || "runtime"} · {Math.round((session.total_seconds ?? 0) / 60)} min
-                          </div>
-                          <div className="text-xs text-muted-foreground">Place {session.place_id || "?"} · Job {session.job_id || "?"}</div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {joinUrl && (
-                            <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } })}>Kick</Button>
-                          <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "script", scriptId: session.script_id, playerUserId: session.player_user_id, playerName: session.player_name || "unknown", licenseId: session.license_id, includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Input placeholder="Message to player…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [session.id]: e.target.value })} />
-                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "sendMessage", payload: { id: session.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [session.id]: "" }); }}><MessageSquare className="size-4" />Send</Button>
-                      </div>
-                      {session.pending_message && <div className="text-xs text-muted-foreground">Pending: {session.pending_message}</div>}
-                    </div>
-                  );
-                }} />
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg xl:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
-                  <h2 className="text-lg font-semibold">All known players ({history.length})</h2>
-                  <div className="text-xs text-muted-foreground">Control any player who ran the script once · presence refreshed every 20s</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-                  <Input className="max-w-xs" placeholder="Search name, UserId, executor…" value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} />
-                  <Select value={presenceFilter} onValueChange={(v) => setPresenceFilter(v as typeof presenceFilter)}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All players</SelectItem>
-                      <SelectItem value="ingame">In game</SelectItem>
-                      <SelectItem value="online">Online</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                      <SelectItem value="watchlist">Watchlist</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <ResponsiveRows
-                  rows={history.filter((h: any) => {
-                    const q = playerSearch.trim().toLowerCase();
-                    if (q && !`${h.player_name ?? ""} ${h.player_user_id ?? ""} ${h.executor_name ?? ""}`.toLowerCase().includes(q)) return false;
-                    if (presenceFilter === "ingame") return h.presence_type === 2;
-                    if (presenceFilter === "online") return h.presence_type === 1;
-                    if (presenceFilter === "offline") return !h.presence_type || h.presence_type === 0;
-                    if (presenceFilter === "watchlist") return Boolean(h.is_watchlisted);
-                    return true;
-                  })}
-                  empty="No players match your filter."
-                  render={(row: any) => {
-                    const draft = messageDrafts[`hist:${row.id}`] ?? "";
-                    const noteDraft = noteDrafts[`hist:${row.id}`] ?? row.notes ?? "";
-                    const joinUrl = row.place_id && row.job_id
-                      ? `roblox://experiences/start?placeId=${row.place_id}&gameInstanceId=${row.job_id}`
-                      : "";
-                    const presenceLabel = row.presence_type === 2 ? "In game" : row.presence_type === 1 ? "Online" : row.presence_type === 3 ? "In Studio" : "Offline";
-                    const presenceTone = row.presence_type === 2 ? "bg-primary text-primary-foreground" : row.presence_type === 1 ? "bg-muted text-foreground" : "bg-muted text-muted-foreground";
-                    return (
-                      <div className={`grid gap-3 p-4 ${row.is_watchlisted ? "border-l-4 border-destructive" : ""}`}>
-                        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold">{row.player_name || "Unknown"}</span>
-                              <span className={`rounded px-2 py-0.5 text-xs ${presenceTone}`}>{presenceLabel}</span>
-                              {row.is_watchlisted && <span className="rounded bg-destructive px-2 py-0.5 text-xs text-destructive-foreground">Watchlist</span>}
-                              <span className="text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span>
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">{row.presence_last_location || "—"} · executor {row.executor_name || "unknown"} · {row.connection_count} launches</div>
-                            <div className="text-xs text-muted-foreground">Place {row.place_id || "?"} · Job {row.job_id || "?"} · last seen {new Date(row.last_seen_at).toLocaleString()}</div>
-                            {(row.pending_message || row.pending_kick_reason) && (
-                              <div className="mt-1 flex items-center gap-2 text-xs text-primary">
-                                Queued: {row.pending_kick_reason ? `kick (${row.pending_kick_reason})` : `message (${row.pending_message})`}
-                                <button className="underline" onClick={() => action.mutate({ type: "clearQueuedActions", payload: { id: row.id } })}>clear</button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-2 lg:justify-end">
-                            {joinUrl && (
-                              <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join</a></Button>
-                            )}
-                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, isWatchlisted: !row.is_watchlisted } })}>{row.is_watchlisted ? "Unflag" : "Watchlist"}</Button>
-                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, kickReason: banReason } })}>Kick</Button>
-                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
-                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: true, ipHash: row.ip_hash, reason: banReason } })}><Ban className="size-4" />Ban + IP</Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Input className="flex-1 min-w-[12rem]" placeholder={row.presence_type === 2 ? "Message (delivers now if in a session, else on next launch)" : "Queue message for next launch…"} value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: e.target.value })} />
-                          <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: "" }); }}><MessageSquare className="size-4" />Send</Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Input className="flex-1 min-w-[12rem]" placeholder="Moderation notes (only staff sees this)…" value={noteDraft} onChange={(e) => setNoteDrafts({ ...noteDrafts, [`hist:${row.id}`]: e.target.value })} />
-                          <Button size="sm" variant="outline" disabled={noteDraft === (row.notes ?? "")} onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, notes: noteDraft } })}>Save note</Button>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Default kick reason</h2>
-                <Textarea className="mt-3 min-h-24" value={banReason} onChange={(event) => setBanReason(event.target.value)} />
-                <p className="mt-2 text-xs text-muted-foreground">Used when kicking or quick-banning live players.</p>
-              </div>
-            </TabsContent>
+      <AuthDialog
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        mode={authMode}
+        setMode={setAuthMode}
+        form={form}
+        setForm={setForm}
+        busy={busy}
+        onSubmit={handleAuth}
+      />
 
-            <TabsContent value="history" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Ban a player</h2>
-                <p className="mt-1 text-xs text-muted-foreground">Ban directly by Roblox username.</p>
-                <label className="mt-4 grid gap-1 text-sm">Roblox username<Input value={banForm.playerName} onChange={(e) => setBanForm({ ...banForm, playerName: e.target.value })} placeholder="e.g. Builderman" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Scope
-                  <Select value={banForm.scope} onValueChange={(v) => setBanForm({ ...banForm, scope: v as "global" | "script" })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="global">All scripts</SelectItem>
-                      <SelectItem value="script">Specific script</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                {banForm.scope === "script" && (
-                  <label className="mt-3 grid gap-1 text-sm">Script
-                    <Select value={banForm.scriptId} onValueChange={(v) => setBanForm({ ...banForm, scriptId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-                      <SelectContent>{scripts.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </label>
-                )}
-                <label className="mt-3 grid gap-1 text-sm">Duration
-                  <Select value={banForm.duration} onValueChange={(v) => setBanForm({ ...banForm, duration: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">Permanent</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                      <SelectItem value="1440">1 day</SelectItem>
-                      <SelectItem value="10080">7 days</SelectItem>
-                      <SelectItem value="43200">30 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Include IP ban<Switch checked={banForm.includeIp} onCheckedChange={(v) => setBanForm({ ...banForm, includeIp: v })} /></label>
-                <label className="mt-3 grid gap-1 text-sm">Reason<Textarea value={banForm.reason} onChange={(e) => setBanForm({ ...banForm, reason: e.target.value })} className="min-h-20" /></label>
-                <Button
-                  className="mt-4 w-full"
-                  disabled={!can.bans || !banForm.playerName.trim() || (banForm.scope === "script" && !banForm.scriptId)}
-                  onClick={() => {
-                    // find matching history row for ip_hash if includeIp
-                    const hist = history.find((h: any) => h.player_name?.toLowerCase() === banForm.playerName.trim().toLowerCase());
-                    action.mutate({
-                      type: "addBan",
-                      payload: {
-                        scope: banForm.scope,
-                        scriptId: banForm.scope === "script" ? banForm.scriptId : null,
-                        playerName: banForm.playerName.trim(),
-                        playerUserId: hist?.player_user_id || "",
-                        includeIp: banForm.includeIp,
-                        ipHash: hist?.ip_hash || null,
-                        durationMinutes: banForm.duration === "0" ? null : Number(banForm.duration),
-                        reason: banForm.reason,
-                      },
-                    });
-                  }}
-                ><Ban className="size-4" />Ban player</Button>
-              </div>
-              <div className="grid gap-4">
-                <div className="app-panel overflow-hidden rounded-lg">
-                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Active bans ({(data?.bans ?? []).filter((b: any) => b.is_active).length})</h2></div>
-                  <ResponsiveRows rows={data?.bans ?? []} empty="No bans." render={(ban: any) => (
-                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                      <div>
-                        <div className="font-medium">{ban.player_name || ban.player_user_id || "License/IP ban"} <span className="ml-2 text-xs text-muted-foreground">{ban.scope === "global" ? "all scripts" : scriptNameById(ban.script_id)}</span></div>
-                        <div className="text-xs text-muted-foreground">{ban.reason} {ban.ip_hash ? "· IP" : ""} {ban.expires_at ? `· until ${new Date(ban.expires_at).toLocaleString()}` : "· permanent"}</div>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setBanActive", payload: { id: ban.id, isActive: !ban.is_active } })}>{ban.is_active ? "Disable" : "Enable"}</Button>
-                    </div>
-                  )} />
-                </div>
-                <div className="app-panel overflow-hidden rounded-lg">
-                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Historical players ({history.length})</h2></div>
-                  <ResponsiveRows rows={history} empty="No player history yet." render={(row: any) => (
-                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                      <div>
-                        <div className="font-medium">{row.player_name || "Unknown"} <span className="ml-2 text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span></div>
-                        <div className="text-xs text-muted-foreground">{row.executor_name || "runtime"} · {row.connection_count} launches · last {new Date(row.last_seen_at).toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">IP {row.ip_hash ? row.ip_hash.slice(0, 12) + "…" : "n/a"}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setBanForm({ ...banForm, playerName: row.player_name || "", scope: "global" })}><Ban className="size-4" />Prep ban</Button>
-                        <Button size="sm" variant="destructive" onClick={() => { if (!confirm("Remove this history entry?")) return; action.mutate({ type: "deleteHistory", payload: { id: row.id } }); }}><Trash2 className="size-4" /></Button>
-                      </div>
-                    </div>
-                  )} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="staff" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Create staff account</h2>
-                <p className="mt-1 text-xs text-muted-foreground">Owner creates the account directly — no signup needed.</p>
-                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="e.g. staff_alex" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Password<Input type="password" value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} placeholder="Min. 6 characters" /></label>
-                <div className="mt-4 grid gap-2">{Object.entries(staffPermissions).map(([key, value]) => <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm"><span>{key.replace(/([A-Z])/g, " $1")}</span><Switch checked={value} onCheckedChange={(checked) => setStaffPermissions({ ...staffPermissions, [key]: checked })} /></label>)}</div>
-                <Button
-                  className="mt-4 w-full"
-                  disabled={!can.users || staffUsername.length < 3 || staffPassword.length < 6}
-                  onClick={() => {
-                    action.mutate(
-                      { type: "createStaffAccount", payload: { username: staffUsername, password: staffPassword, ...staffPermissions } },
-                      { onSuccess: () => { setStaffUsername(""); setStaffPassword(""); } },
-                    );
-                  }}
-                ><UserCog /> Create account</Button>
-                <Button
-                  className="mt-2 w-full"
-                  variant="outline"
-                  disabled={!can.users || staffUsername.length < 3}
-                  onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}
-                >Update existing user's permissions</Button>
-                <p className="mt-2 text-xs text-muted-foreground">Login email will be <code>username@babis.local</code>.</p>
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg"><ResponsiveRows rows={data?.users ?? []} empty="No accounts yet." render={(user: any) => <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="font-semibold">{user.username}</div><div className="text-xs text-muted-foreground">{user.account_status}</div></div><Button variant="outline" size="sm" onClick={() => action.mutate({ type: "removeStaff", payload: { userId: user.id } })} disabled={!can.users}>Remove staff</Button></div>} /></div>
-            </TabsContent>
-
-            <TabsContent value="settings" className="grid gap-4">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Discord invite link</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Used in the loader GUI and in every kick / appeal message. Changing it updates all existing bans too.
-                </p>
-                <label className="mt-4 grid gap-1 text-sm">
-                  Invite URL
-                  <Input value={discordLink} onChange={(event) => setDiscordLink(event.target.value)} placeholder="https://discord.gg/..." />
-                </label>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    disabled={!can.owner || action.isPending || !/^https?:\/\//.test(discordLink.trim())}
-                    onClick={() => action.mutate({ type: "updateDiscordLink", payload: { url: discordLink.trim() } })}
-                  ><Save /> Save link</Button>
-                  <Button variant="outline" onClick={() => copyText("Discord link", discordLink.trim())}><Copy /> Copy</Button>
-                  {discordLink.trim() ? (
-                    <a href={discordLink.trim()} target="_blank" rel="noreferrer" className="inline-flex">
-                      <Button variant="outline"><ExternalLink /> Open</Button>
-                    </a>
-                  ) : null}
-                </div>
-                {!can.owner ? <p className="mt-3 text-xs text-muted-foreground">Only the owner can change this link.</p> : null}
-                <p className="mt-3 text-xs text-muted-foreground">Current live link: <code>{data?.discordInviteUrl ?? "—"}</code></p>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </section>
-      </div>
+      <ContentEditor
+        editor={editor}
+        onClose={() => setEditor(null)}
+        onSave={(table, row, values) =>
+          save.mutate(row ? { table, op: "update", id: row.id, values } : { table, op: "insert", values })
+        }
+      />
     </main>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{value}</div><div className="text-xs text-muted-foreground">{label}</div></div>;
+function Section({ id, title, subtitle, children, onAdd }: { id: string; title: string; subtitle?: string; children: React.ReactNode; onAdd?: () => void }) {
+  return (
+    <section id={id} className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+        </div>
+        {onAdd ? (
+          <Button size="sm" variant="outline" onClick={onAdd}>
+            <Plus className="mr-1 size-4" /> Add
+          </Button>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; render: (row: any) => ReactNode }) {
-  if (!rows.length) return <div className="p-6 text-sm text-muted-foreground">{empty}</div>;
-  return <div className="divide-y divide-border">{rows.map((row) => <div key={row.id}>{render(row)}</div>)}</div>;
+function Empty({ text }: { text: string }) {
+  return <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{text}</p>;
 }
 
-function formatTimeLeft(expiresAt: string | null | undefined): string {
-  if (!expiresAt) return "Permanent";
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return "Expired";
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins}m left`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ${mins % 60}m left`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ${hrs % 24}h left`;
+function OwnerRowActions({ owner, onEdit, onDelete, className = "" }: { owner: boolean; onEdit: () => void; onDelete: () => void; className?: string }) {
+  if (!owner) return null;
+  return (
+    <div className={`mt-3 flex gap-2 ${className}`}>
+      <Button size="sm" variant="ghost" onClick={onEdit}><Pencil className="mr-1 size-3" /> Edit</Button>
+      <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="mr-1 size-3" /> Delete</Button>
+    </div>
+  );
+}
+
+const FIELDS: Record<string, { key: string; label: string; type?: "text" | "textarea" | "list" | "number" | "bool" }[]> = {
+  shop_items: [
+    { key: "title", label: "Script name" },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "features", label: "Features (one per line)", type: "list" },
+    { key: "loader_command", label: "Loader command", type: "textarea" },
+    { key: "video_url", label: "Video URL" },
+    { key: "price_label", label: "Price label" },
+    { key: "badge", label: "Badge" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+  pricing_plans: [
+    { key: "emoji", label: "Emoji" },
+    { key: "name", label: "Plan name" },
+    { key: "price_label", label: "Price" },
+    { key: "subtitle", label: "Subtitle" },
+    { key: "perks", label: "Perks (one per line)", type: "list" },
+    { key: "cta_label", label: "Button label" },
+    { key: "cta_url", label: "Button link" },
+    { key: "highlight", label: "Highlight (true/false)", type: "bool" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+  site_faq: [
+    { key: "question", label: "Question" },
+    { key: "answer", label: "Answer", type: "textarea" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+  site_videos: [
+    { key: "title", label: "Title" },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "video_url", label: "Video URL" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+  site_links: [
+    { key: "platform", label: "Platform (youtube / tiktok / instagram / discord / link)" },
+    { key: "label", label: "Label" },
+    { key: "description", label: "Description" },
+    { key: "url", label: "URL" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+  site_tabs: [
+    { key: "label", label: "Tab label" },
+    { key: "section_key", label: "Section (scripts / premium / videos / reviews / faq / social)" },
+    { key: "sort_order", label: "Order", type: "number" },
+  ],
+};
+
+function ContentEditor({
+  editor,
+  onClose,
+  onSave,
+}: {
+  editor: { table: string; row: Row | null } | null;
+  onClose: () => void;
+  onSave: (table: string, row: Row | null, values: Row) => void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!editor) return;
+    const fields = FIELDS[editor.table] ?? [];
+    const next: Record<string, string> = {};
+    for (const field of fields) {
+      const raw = editor.row?.[field.key];
+      next[field.key] = field.type === "list" ? (Array.isArray(raw) ? raw.join("\n") : "") : raw == null ? "" : String(raw);
+    }
+    setValues(next);
+  }, [editor]);
+
+  if (!editor) return null;
+  const fields = FIELDS[editor.table] ?? [];
+
+  function submit() {
+    const payload: Row = {};
+    for (const field of fields) {
+      const value = values[field.key] ?? "";
+      if (field.type === "list") payload[field.key] = value.split("\n").map((l) => l.trim()).filter(Boolean);
+      else if (field.type === "number") payload[field.key] = Number(value) || 0;
+      else if (field.type === "bool") payload[field.key] = value.trim().toLowerCase() === "true";
+      else payload[field.key] = value;
+    }
+    onSave(editor!.table, editor!.row, payload);
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => (!open ? onClose() : null)}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{editor.row ? "Edit" : "Add"} · {editor.table.replace("_", " ")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {fields.map((field) => (
+            <div key={field.key}>
+              <label className="mb-1 block text-xs text-muted-foreground">{field.label}</label>
+              {field.type === "textarea" || field.type === "list" ? (
+                <Textarea rows={field.type === "list" ? 4 : 3} value={values[field.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))} />
+              ) : (
+                <Input value={values[field.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))} />
+              )}
+            </div>
+          ))}
+          <Button className="w-full" onClick={submit}>Save</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AuthDialog({
+  open,
+  onOpenChange,
+  mode,
+  setMode,
+  form,
+  setForm,
+  busy,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: "signin" | "signup";
+  setMode: (mode: "signin" | "signup") => void;
+  form: { username: string; password: string; confirm: string };
+  setForm: React.Dispatch<React.SetStateAction<{ username: string; password: string; confirm: string }>>;
+  busy: boolean;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{mode === "signup" ? "Create your account" : "Sign in"}</DialogTitle>
+        </DialogHeader>
+        <form className="space-y-3" onSubmit={onSubmit}>
+          <Input placeholder="Username" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />
+          <Input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+          {mode === "signup" ? (
+            <Input type="password" placeholder="Confirm password" value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} />
+          ) : null}
+          <Button className="w-full" type="submit" disabled={busy}>
+            {mode === "signup" ? "Create account" : "Sign in"}
+          </Button>
+          <button type="button" className="w-full text-center text-xs text-muted-foreground underline" onClick={() => setMode(mode === "signup" ? "signin" : "signup")}>
+            {mode === "signup" ? "I already have an account" : "I need an account"}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
