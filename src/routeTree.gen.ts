@@ -10,10 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as PanelRouteImport } from './routes/panel'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPublicPaypalRouteImport } from './routes/api/public/paypal'
 import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
@@ -24,11 +22,6 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PanelRoute = PanelRouteImport.update({
-  id: '/panel',
-  path: '/panel',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -37,11 +30,6 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicPaypalRoute = ApiPublicPaypalRouteImport.update({
-  id: '/api/public/paypal',
-  path: '/api/public/paypal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
@@ -68,22 +56,18 @@ const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
-  '/api/public/paypal': typeof ApiPublicPaypalRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
-  '/api/public/paypal': typeof ApiPublicPaypalRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
@@ -91,11 +75,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
-  '/api/public/paypal': typeof ApiPublicPaypalRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
@@ -104,33 +86,27 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
-    | '/api/public/paypal'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
-    | '/api/public/paypal'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   id:
     | '__root__'
     | '/'
     | '/auth'
-    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
-    | '/api/public/paypal'
     | '/api/public/run/$publicId'
     | '/api/public/loader/$publicId'
   fileRoutesById: FileRoutesById
@@ -138,11 +114,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
-  PanelRoute: typeof PanelRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
   ApiPublicHubRoute: typeof ApiPublicHubRoute
-  ApiPublicPaypalRoute: typeof ApiPublicPaypalRoute
   ApiPublicRunPublicIdRoute: typeof ApiPublicRunPublicIdRoute
   ApiPublicLoaderPublicIdRoute: typeof ApiPublicLoaderPublicIdRoute
 }
@@ -154,13 +128,6 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/panel': {
-      id: '/panel'
-      path: '/panel'
-      fullPath: '/panel'
-      preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -175,13 +142,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/paypal': {
-      id: '/api/public/paypal'
-      path: '/api/public/paypal'
-      fullPath: '/api/public/paypal'
-      preLoaderRoute: typeof ApiPublicPaypalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hub': {
@@ -218,11 +178,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
-  PanelRoute: PanelRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
   ApiPublicHubRoute: ApiPublicHubRoute,
-  ApiPublicPaypalRoute: ApiPublicPaypalRoute,
   ApiPublicRunPublicIdRoute: ApiPublicRunPublicIdRoute,
   ApiPublicLoaderPublicIdRoute: ApiPublicLoaderPublicIdRoute,
 }
