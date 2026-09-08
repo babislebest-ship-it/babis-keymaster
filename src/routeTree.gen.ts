@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as PanelRouteImport } from './routes/panel'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
@@ -22,14 +22,14 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PanelRoute = PanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
@@ -54,8 +54,8 @@ const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
@@ -63,8 +63,8 @@ export interface FileRoutesByFullPath {
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
@@ -73,8 +73,8 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
@@ -84,8 +84,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/auth'
+    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
@@ -93,8 +93,8 @@ export interface FileRouteTypes {
     | '/api/public/loader/$publicId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/auth'
+    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
@@ -102,8 +102,8 @@ export interface FileRouteTypes {
     | '/api/public/loader/$publicId'
   id:
     | '__root__'
-    | '/'
     | '/auth'
+    | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
@@ -112,8 +112,8 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  PanelRoute: typeof PanelRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
   ApiPublicHubRoute: typeof ApiPublicHubRoute
@@ -130,18 +130,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/panel': {
+      id: '/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof PanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hub': {
@@ -176,8 +176,8 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  PanelRoute: PanelRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
   ApiPublicHubRoute: ApiPublicHubRoute,
