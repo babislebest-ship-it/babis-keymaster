@@ -267,6 +267,54 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_plans: {
+        Row: {
+          created_at: string
+          cta_label: string
+          cta_url: string | null
+          emoji: string
+          highlight: boolean
+          id: string
+          is_published: boolean
+          name: string
+          perks: string[]
+          price_label: string
+          sort_order: number
+          subtitle: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cta_label?: string
+          cta_url?: string | null
+          emoji?: string
+          highlight?: boolean
+          id?: string
+          is_published?: boolean
+          name: string
+          perks?: string[]
+          price_label?: string
+          sort_order?: number
+          subtitle?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cta_label?: string
+          cta_url?: string | null
+          emoji?: string
+          highlight?: boolean
+          id?: string
+          is_published?: boolean
+          name?: string
+          perks?: string[]
+          price_label?: string
+          sort_order?: number
+          subtitle?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_status: string
@@ -573,6 +621,213 @@ export type Database = {
           universe_id?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      shop_items: {
+        Row: {
+          badge: string | null
+          created_at: string
+          description: string
+          features: string[]
+          id: string
+          image_url: string | null
+          is_published: boolean
+          loader_command: string
+          price_label: string
+          sort_order: number
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          badge?: string | null
+          created_at?: string
+          description?: string
+          features?: string[]
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          loader_command?: string
+          price_label?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          badge?: string | null
+          created_at?: string
+          description?: string
+          features?: string[]
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          loader_command?: string
+          price_label?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      site_faq: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          is_published: boolean
+          question: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          answer?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_links: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_published: boolean
+          label: string
+          platform: string
+          sort_order: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          label?: string
+          platform?: string
+          sort_order?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          label?: string
+          platform?: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      site_reviews: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          rating: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      site_tabs: {
+        Row: {
+          created_at: string
+          id: string
+          is_published: boolean
+          label: string
+          section_key: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          label: string
+          section_key: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          label?: string
+          section_key?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_videos: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_published: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_url?: string
         }
         Relationships: []
       }
