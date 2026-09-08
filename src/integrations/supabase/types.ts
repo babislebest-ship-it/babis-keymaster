@@ -76,6 +76,51 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          amount_cents: number
+          buyer_email: string | null
+          buyer_name: string | null
+          created_at: string
+          currency: string
+          discord_tag: string | null
+          id: string
+          items: Json
+          paypal_order_id: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents?: number
+          buyer_email?: string | null
+          buyer_name?: string | null
+          created_at?: string
+          currency?: string
+          discord_tag?: string | null
+          id?: string
+          items?: Json
+          paypal_order_id: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          buyer_email?: string | null
+          buyer_name?: string | null
+          created_at?: string
+          currency?: string
+          discord_tag?: string | null
+          id?: string
+          items?: Json
+          paypal_order_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       player_bans: {
         Row: {
           appeal_url: string
@@ -272,12 +317,14 @@ export type Database = {
           created_at: string
           cta_label: string
           cta_url: string | null
+          currency: string
           emoji: string
           highlight: boolean
           id: string
           is_published: boolean
           name: string
           perks: string[]
+          price_cents: number
           price_label: string
           sort_order: number
           subtitle: string
@@ -287,12 +334,14 @@ export type Database = {
           created_at?: string
           cta_label?: string
           cta_url?: string | null
+          currency?: string
           emoji?: string
           highlight?: boolean
           id?: string
           is_published?: boolean
           name: string
           perks?: string[]
+          price_cents?: number
           price_label?: string
           sort_order?: number
           subtitle?: string
@@ -302,12 +351,14 @@ export type Database = {
           created_at?: string
           cta_label?: string
           cta_url?: string | null
+          currency?: string
           emoji?: string
           highlight?: boolean
           id?: string
           is_published?: boolean
           name?: string
           perks?: string[]
+          price_cents?: number
           price_label?: string
           sort_order?: number
           subtitle?: string
@@ -628,12 +679,14 @@ export type Database = {
         Row: {
           badge: string | null
           created_at: string
+          currency: string
           description: string
           features: string[]
           id: string
           image_url: string | null
           is_published: boolean
           loader_command: string
+          price_cents: number
           price_label: string
           sort_order: number
           title: string
@@ -643,12 +696,14 @@ export type Database = {
         Insert: {
           badge?: string | null
           created_at?: string
+          currency?: string
           description?: string
           features?: string[]
           id?: string
           image_url?: string | null
           is_published?: boolean
           loader_command?: string
+          price_cents?: number
           price_label?: string
           sort_order?: number
           title: string
@@ -658,12 +713,14 @@ export type Database = {
         Update: {
           badge?: string | null
           created_at?: string
+          currency?: string
           description?: string
           features?: string[]
           id?: string
           image_url?: string | null
           is_published?: boolean
           loader_command?: string
+          price_cents?: number
           price_label?: string
           sort_order?: number
           title?: string
