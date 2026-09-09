@@ -1,256 +1,237 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Ban,
   Check,
-  Clipboard,
-  Code2,
+  ChevronDown,
   Copy,
-  Edit3,
-  History,
-  KeyRound,
-  LogOut,
-  Link2,
   Menu,
+  Minus,
+  Pencil,
   Plus,
-  Save,
-  Shield,
+  ShoppingCart,
+  Star,
   Trash2,
-  UserCog,
-  Upload,
-  Users,
-  MessageSquare,
-  ExternalLink,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { dashboardAction, getAccountState, getDashboardData, refreshPresence } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  capturePaypalOrder,
+  createPaypalOrder,
+  deleteReview,
+  deleteSiteContent,
+  getPaypalConfig,
+  getSiteContent,
+  getViewerState,
+  saveReview,
+  saveSiteContent,
+} from "@/lib/shop.functions";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Babis Scripts — Premium Roblox Scripts & Keys" },
+      {
+        name: "description",
+        content:
+          "Copy Babis premium Roblox scripts in one click, watch showcases, read reviews and grab a premium subscription with PayPal, card, Apple Pay or Google Pay.",
+      },
+      { property: "og:title", content: "Babis Scripts — Premium Roblox Scripts & Keys" },
+      {
+        property: "og:description",
+        content: "One-click script loaders, premium plans, showcases and reviews from the Babis community.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Storefront,
 });
 
-function Index() {
-  const [sessionReady, setSessionReady] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-  const navigate = useNavigate();
+type Row = Record<string, any>;
+type TableName = "shop_items" | "pricing_plans" | "site_faq" | "site_videos" | "site_links" | "site_tabs";
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSignedIn(Boolean(data.session));
-      setSessionReady(true);
-      if (!data.session) navigate({ to: "/auth" });
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(Boolean(session));
-      setSessionReady(true);
-      if (!session) navigate({ to: "/auth" });
-    });
-    return () => data.subscription.unsubscribe();
-  }, [navigate]);
+type FieldSpec = { key: string; label: string; type: "text" | "textarea" | "list" | "bool" | "number" };
 
-  if (!sessionReady) return <LoadingShell />;
-  if (!signedIn) return <LoadingShell />;
-  return <Dashboard />;
-}
-
-function LoadingShell() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="app-panel w-full max-w-sm rounded-lg p-6 text-center">
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Shield className="size-6" />
-        </div>
-        <p className="text-sm text-muted-foreground">Loading Babis Premium…</p>
-      </div>
-    </div>
-  );
-}
-
-function Landing() {
-  return (
-    <main className="min-h-screen bg-background px-4 py-4 text-foreground sm:px-6 lg:px-8">
-      <section className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-6xl items-center gap-8 py-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div>
-          <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-            <Shield className="size-4 text-primary" />
-            Babis Premium
-          </div>
-          <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-            Script access control for Roblox experiences.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Store Luau scripts, issue timed license keys, manage staff permissions, block abuse, and monitor live launches from a responsive dashboard.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link to="/auth">Sign in</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link to="/auth" search={{ mode: "signup" } as never}>
-                Create account
-              </Link>
-            </Button>
-          </div>
-        </div>
-        <div className="app-panel rounded-lg p-4 sm:p-6">
-          <div className="grid gap-3">
-            {[
-              ["Scripts", "Save, edit, and rotate loader URLs."],
-              ["Licenses", "Generate permanent or timed keys."],
-              ["Players", "View live sessions, kicks, bans, and history."],
-              ["Staff", "Owner-managed permissions for team accounts."],
-            ].map(([title, body]) => (
-              <div key={title} className="rounded-md border border-border bg-muted p-4">
-                <div className="text-sm font-semibold text-foreground">{title}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{body}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-type ScriptRow = Record<string, any>;
-type LicenseRow = Record<string, any>;
-type SessionRow = Record<string, any>;
-
-const emptyScript = {
-  id: null as string | null,
-  name: "",
-  description: "",
-  sourceCode: "",
-  requireLicense: true,
-  isActive: true,
+const FIELDS: Record<TableName, FieldSpec[]> = {
+  shop_items: [
+    { key: "title", label: "Script name", type: "text" },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "features", label: "Features (one per line)", type: "list" },
+    { key: "loader_command", label: "Loader command", type: "textarea" },
+    { key: "video_url", label: "Video link (optional)", type: "text" },
+    { key: "image_url", label: "Image link (optional)", type: "text" },
+    { key: "price_label", label: "Price label", type: "text" },
+    { key: "price_cents", label: "Price in cents (0 = free)", type: "number" },
+    { key: "badge", label: "Badge (optional)", type: "text" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible on the site", type: "bool" },
+  ],
+  pricing_plans: [
+    { key: "name", label: "Plan name", type: "text" },
+    { key: "emoji", label: "Emoji", type: "text" },
+    { key: "price_label", label: "Price label", type: "text" },
+    { key: "price_cents", label: "Price in cents", type: "number" },
+    { key: "subtitle", label: "Subtitle", type: "text" },
+    { key: "perks", label: "Perks (one per line)", type: "list" },
+    { key: "cta_label", label: "Button label", type: "text" },
+    { key: "highlight", label: "Highlighted plan", type: "bool" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible on the site", type: "bool" },
+  ],
+  site_faq: [
+    { key: "question", label: "Question", type: "text" },
+    { key: "answer", label: "Answer", type: "textarea" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible on the site", type: "bool" },
+  ],
+  site_videos: [
+    { key: "title", label: "Title", type: "text" },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "video_url", label: "Video link (YouTube / TikTok)", type: "text" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible on the site", type: "bool" },
+  ],
+  site_links: [
+    { key: "platform", label: "Platform (youtube, tiktok, instagram, discord…)", type: "text" },
+    { key: "label", label: "Label", type: "text" },
+    { key: "description", label: "Description", type: "text" },
+    { key: "url", label: "Link", type: "text" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible on the site", type: "bool" },
+  ],
+  site_tabs: [
+    { key: "label", label: "Menu label", type: "text" },
+    { key: "section_key", label: "Section (scripts, premium, videos, reviews, faq, social)", type: "text" },
+    { key: "sort_order", label: "Position", type: "number" },
+    { key: "is_published", label: "Visible in the menu", type: "bool" },
+  ],
 };
 
-function Dashboard() {
+const DEFAULT_TABS = [
+  { section_key: "scripts", label: "Scripts" },
+  { section_key: "premium", label: "Premium" },
+  { section_key: "videos", label: "Videos" },
+  { section_key: "reviews", label: "Reviews" },
+  { section_key: "faq", label: "FAQ" },
+  { section_key: "social", label: "Social" },
+];
+
+const money = (cents: number, currency = "EUR") =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents ?? 0) / 100);
+
+function embedUrl(url: string) {
+  if (!url) return "";
+  const yt = url.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
+  if (yt && url.includes("you")) return `https://www.youtube.com/embed/${yt[1]}`;
+  return url;
+}
+
+type CartLine = { kind: "shop_items" | "pricing_plans"; id: string; title: string; priceCents: number; quantity: number };
+
+function Storefront() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const getAccount = useServerFn(getAccountState);
-  const getDashboard = useServerFn(getDashboardData);
-  const runDashboardAction = useServerFn(dashboardAction);
-  const refreshPresenceFn = useServerFn(refreshPresence);
+  const loadContent = useServerFn(getSiteContent);
+  const loadViewer = useServerFn(getViewerState);
+  const saveContentFn = useServerFn(saveSiteContent);
+  const deleteContentFn = useServerFn(deleteSiteContent);
+  const saveReviewFn = useServerFn(saveReview);
+  const deleteReviewFn = useServerFn(deleteReview);
+
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeScriptId, setActiveScriptId] = useState<string>("");
-  const [scriptForm, setScriptForm] = useState(emptyScript);
-  const [licenseMinutes, setLicenseMinutes] = useState("0");
-  const [licenseLabel, setLicenseLabel] = useState("");
-  const [licenseSeats, setLicenseSeats] = useState("1");
-  const [banReason, setBanReason] = useState("Access revoked by Babis staff.");
-  const [banForm, setBanForm] = useState({
-    playerName: "",
-    scope: "global" as "global" | "script",
-    scriptId: "",
-    duration: "0",
-    includeIp: false,
-    reason: "Access revoked by Babis staff.",
-  });
-  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
-  const [playerSearch, setPlayerSearch] = useState("");
-  const [presenceFilter, setPresenceFilter] = useState<"all" | "ingame" | "online" | "offline" | "watchlist">("all");
-  const [discordLink, setDiscordLink] = useState("");
-  const [staffUsername, setStaffUsername] = useState("");
-  const [staffPassword, setStaffPassword] = useState("");
-  const [staffPermissions, setStaffPermissions] = useState({
-    canManageScripts: true,
-    canManageLicenses: true,
-    canManageBans: false,
-    canManageUsers: false,
-    canViewLogs: true,
-  });
+  const [cartOpen, setCartOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [editor, setEditor] = useState<{ table: TableName; row: Row } | null>(null);
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewBody, setReviewBody] = useState("");
 
-  const account = useQuery({ queryKey: ["account"], queryFn: () => getAccount() });
-  const dashboard = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => getDashboard(),
+  const content = useQuery({ queryKey: ["site-content"], queryFn: () => loadContent() });
+  const viewer = useQuery({
+    queryKey: ["viewer", signedIn],
+    queryFn: () => loadViewer(),
+    enabled: signedIn,
     retry: false,
-    refetchInterval: 10000,
-    refetchOnWindowFocus: true,
   });
 
-  // Poll Roblox presence every 20s so known players show up as live
-  // even when they haven't re-executed the script.
   useEffect(() => {
-    let cancelled = false;
-    const tick = () => refreshPresenceFn().catch(() => {}).finally(() => {
-      if (!cancelled) queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    });
-    tick();
-    const id = setInterval(tick, 20000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [refreshPresenceFn, queryClient]);
-  const data = dashboard.data as any;
-  const scripts: ScriptRow[] = data?.scripts ?? [];
-  const licenses: LicenseRow[] = data?.licenses ?? [];
-  const sessions: SessionRow[] = data?.sessions ?? [];
-  const history: any[] = data?.history ?? [];
-  const selectedScript = scripts.find((script) => script.id === activeScriptId) ?? scripts[0];
-  const selectedScriptId = selectedScript?.id ?? "";
-  const loader = selectedScript ? `loadstring(game:HttpGet("${window.location.origin}/api/public/loader/${selectedScript.public_id}", true))()` : "";
-  const scriptLicenses = licenses.filter((license) => license.script_id === selectedScriptId);
-  // Live = active AND heartbeat within 45s
-  const now = Date.now();
-  const isLive = (session: SessionRow) =>
-    session.status === "active" && now - new Date(session.last_seen_at).getTime() < 45_000;
-  const scriptSessions = sessions.filter((session) => session.script_id === selectedScriptId);
-  const liveSessions = sessions.filter(isLive);
-  const scriptNameById = (id: string) => scripts.find((s) => s.id === id)?.name ?? "—";
+    supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => setSignedIn(Boolean(session)));
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
-    if (!activeScriptId && scripts[0]) setActiveScriptId(scripts[0].id);
-  }, [activeScriptId, scripts]);
+    try {
+      const raw = localStorage.getItem("babis-cart");
+      if (raw) setCart(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("babis-cart", JSON.stringify(cart));
+    } catch { /* ignore */ }
+  }, [cart]);
 
-  const action = useMutation({
-    mutationFn: (payload: { type: string; payload?: Record<string, unknown> }) =>
-      runDashboardAction({ data: { type: payload.type, payload: payload.payload ?? {} } }),
-    onSuccess: (_result, variables) => {
-      toast.success("Action completed", { description: variables.type });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  const data = content.data as any;
+  const isOwner = Boolean((viewer.data as any)?.isOwner);
+  const viewerId = (viewer.data as any)?.userId as string | undefined;
+
+  const visible = (rows: Row[]) => (isOwner ? rows : rows.filter((r) => r.is_published !== false));
+  const scripts = visible(data?.shopItems ?? []);
+  const plans = visible(data?.plans ?? []);
+  const faq = visible(data?.faq ?? []);
+  const videos = visible(data?.videos ?? []);
+  const links = visible(data?.links ?? []);
+  const reviews: Row[] = data?.reviews ?? [];
+  const tabs = useMemo(() => {
+    const rows = visible(data?.tabs ?? []);
+    return rows.length ? rows : DEFAULT_TABS;
+  }, [data, isOwner]);
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: { table: TableName; id: string | null; row: Row }) =>
+      saveContentFn({ data: { table: payload.table, id: payload.id, row: payload.row } }),
+    onSuccess: () => {
+      toast.success("Saved");
+      setEditor(null);
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
     },
-    onError: (error) => toast.error("Action failed", { description: error.message }),
+    onError: (error) => toast.error("Could not save", { description: (error as Error).message }),
   });
 
-  useEffect(() => {
-    if (data?.discordInviteUrl) setDiscordLink((current) => current || String(data.discordInviteUrl));
-  }, [data?.discordInviteUrl]);
+  const deleteMutation = useMutation({
+    mutationFn: (payload: { table: TableName; id: string }) => deleteContentFn({ data: payload }),
+    onSuccess: () => {
+      toast.success("Deleted");
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
+    },
+    onError: (error) => toast.error("Could not delete", { description: (error as Error).message }),
+  });
 
-  const can = useMemo(() => {
-    const roles = data?.roles ?? [];
-    const permission = data?.permissions ?? {};
-    const owner = roles.includes("owner");
-    return {
-      scripts: owner || permission.can_manage_scripts,
-      licenses: owner || permission.can_manage_licenses,
-      bans: owner || permission.can_manage_bans,
-      users: owner || permission.can_manage_users,
-      owner,
-      logs: owner || permission.can_view_logs,
-    };
-  }, [data]);
+  const reviewMutation = useMutation({
+    mutationFn: () => saveReviewFn({ data: { rating: reviewRating, body: reviewBody.trim() } }),
+    onSuccess: () => {
+      toast.success("Thanks for your review!");
+      setReviewBody("");
+      queryClient.invalidateQueries({ queryKey: ["site-content"] });
+    },
+    onError: (error) => toast.error("Could not post the review", { description: (error as Error).message }),
+  });
 
   async function copyText(label: string, value: string) {
     if (!value) return toast.error("Nothing to copy");
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
     } catch {
       const area = document.createElement("textarea");
       area.value = value;
@@ -258,477 +239,668 @@ function Dashboard() {
       area.select();
       document.execCommand("copy");
       document.body.removeChild(area);
-      toast.success(`${label} copied`);
     }
+    toast.success(`${label} copied`);
   }
 
-  function editScript(script: ScriptRow) {
-    setScriptForm({
-      id: script.id,
-      name: script.name ?? "",
-      description: script.description ?? "",
-      sourceCode: script.source_code ?? "",
-      requireLicense: Boolean(script.require_license),
-      isActive: Boolean(script.is_active),
+  function addToCart(line: Omit<CartLine, "quantity">) {
+    setCart((current) => {
+      const existing = current.find((l) => l.id === line.id);
+      if (existing) return current.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
+      return [...current, { ...line, quantity: 1 }];
     });
-    setActiveScriptId(script.id);
+    setCartOpen(true);
+    toast.success("Added to cart", { description: line.title });
+  }
+
+  function scrollTo(key: string) {
     setMenuOpen(false);
+    const el = document.getElementById(`section-${key}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function signOut() {
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  }
+  const cartCount = cart.reduce((sum, l) => sum + l.quantity, 0);
+  const cartTotal = cart.reduce((sum, l) => sum + l.quantity * l.priceCents, 0);
 
-  if (account.isLoading || dashboard.isLoading) return <LoadingShell />;
-  if (dashboard.error) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="app-panel max-w-md rounded-lg p-6 text-center">
-          <Shield className="mx-auto mb-4 size-10 text-primary" />
-          <h1 className="text-xl font-semibold">Dashboard access is not ready</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Ask the owner to grant your account staff permissions.</p>
-          <div className="mt-5 flex justify-center gap-2">
-            <Button variant="outline" onClick={signOut}>Sign out</Button>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  const OwnerBar = ({ table, row }: { table: TableName; row?: Row }) =>
+    isOwner ? (
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={() => setEditor({ table, row: row ?? {} })}>
+          <Pencil className="size-3.5" /> {row ? "Edit" : "Add"}
+        </Button>
+        {row?.id && (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              if (confirm("Delete this item?")) deleteMutation.mutate({ table, id: row.id });
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
+      </div>
+    ) : null;
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="dashboard-grid min-h-screen">
-        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 bg-sidebar p-4 md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto md:border-r md:border-sidebar-border`}>
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <div className="text-lg font-semibold text-sidebar-foreground">Babis</div>
-              <div className="text-xs text-muted-foreground">Premium control panel</div>
-            </div>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(false)}><X /></Button>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="aurora" aria-hidden="true" />
+
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <button onClick={() => setMenuOpen(true)} className="menu-button" aria-label="Open menu">
+            <Menu className="size-5" />
+          </button>
+          <div className="text-lg font-semibold tracking-tight">
+            Babis <span className="text-primary">Scripts</span>
           </div>
-          <Button className="mb-4 w-full" onClick={() => { setScriptForm(emptyScript); setMenuOpen(false); }}>
-            <Plus /> New script
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="relative" onClick={() => setCartOpen(true)}>
+              <ShoppingCart className="size-4" />
+              <span className="hidden sm:inline">Cart</span>
+              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            </Button>
+            {signedIn ? (
+              <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
+                Sign out
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => setAuthOpen(true)}>
+                Sign in
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Slide-in menu */}
+      <div className={`drawer-overlay ${menuOpen ? "is-open" : ""}`} onClick={() => setMenuOpen(false)} />
+      <nav className={`drawer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen}>
+        <div className="flex items-center justify-between p-5">
+          <div className="text-base font-semibold">Menu</div>
+          <Button variant="ghost" size="icon" onClick={() => setMenuOpen(false)}>
+            <X className="size-5" />
           </Button>
-          <div className="space-y-2">
-            {scripts.map((script) => (
-              <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
-                <button onClick={() => editScript(script)} className="flex-1 min-w-0 p-3 text-left">
-                  <div className="flex items-center gap-2 text-sm font-semibold"><Code2 className="size-4" />{script.name}</div>
-                  <div className="mt-1 text-xs opacity-80">{script.require_license ? "License required" : "Open loader"}</div>
+        </div>
+        <div className="grid gap-1 px-3">
+          {tabs.map((tab: Row, index: number) => (
+            <div key={tab.id ?? tab.section_key} className="drawer-item" style={{ animationDelay: `${index * 45}ms` }}>
+              <button onClick={() => scrollTo(tab.section_key)} className="flex-1 rounded-md px-3 py-3 text-left text-sm font-medium hover:bg-muted">
+                {tab.label}
+              </button>
+              {isOwner && tab.id && (
+                <button className="px-2 text-muted-foreground hover:text-foreground" onClick={() => setEditor({ table: "site_tabs", row: tab })}>
+                  <Pencil className="size-3.5" />
                 </button>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (!can.scripts) return toast.error("Missing script permission");
-                    if (!confirm(`Delete script "${script.name}"? This cannot be undone.`)) return;
-                    action.mutate({ type: "deleteScript", payload: { id: script.id } });
-                  }}
-                  className="px-3 opacity-70 hover:opacity-100"
-                  title="Delete script"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        <section className="min-w-0 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Button variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(true)}><Menu /></Button>
-              <div>
-                <h1 className="text-2xl font-semibold sm:text-3xl">Script Manager</h1>
-                <p className="text-sm text-muted-foreground">Signed in as {data?.profile?.username ?? "staff"}</p>
-              </div>
+              )}
             </div>
-            <Button variant="outline" onClick={signOut}><LogOut /> Sign out</Button>
-          </header>
+          ))}
+        </div>
+        {isOwner && (
+          <div className="mt-4 grid gap-2 px-5">
+            <Button variant="outline" size="sm" onClick={() => setEditor({ table: "site_tabs", row: {} })}>
+              <Plus className="size-4" /> Add menu tab
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/panel">Owner panel</Link>
+            </Button>
+          </div>
+        )}
+      </nav>
 
-          <Tabs defaultValue="scripts" className="min-w-0">
-            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
-              <TabsTrigger value="scripts"><Plus className="mr-2 size-4" />Add</TabsTrigger>
-              <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
-              <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
-              <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
-              <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
-              <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold">Source editor</h2>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => selectedScript && editScript(selectedScript)} disabled={!selectedScript}><Edit3 /> Load selected</Button>
-                    <Button variant="outline" onClick={() => document.getElementById("script-file-input")?.click()}><Upload /> Import file</Button>
-                    <input
-                      id="script-file-input"
-                      type="file"
-                      accept=".lua,.luau,.txt,.rbxm,text/plain"
-                      className="hidden"
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = "";
-                        if (!file) return;
-                        try {
-                          const text = await file.text();
-                          setScriptForm((current) => ({
-                            ...current,
-                            sourceCode: text,
-                            name: current.name || file.name.replace(/\.[^.]+$/, ""),
-                          }));
-                          toast.success("File imported", { description: `${file.name} — ${text.length} characters` });
-                        } catch {
-                          toast.error("Could not read that file");
-                        }
-                      }}
-                    />
-                    <Button onClick={() => action.mutate({ type: "saveScript", payload: scriptForm })} disabled={!can.scripts || action.isPending}>
-                      <Save /> Save
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">Script name<Input value={scriptForm.name} onChange={(event) => setScriptForm({ ...scriptForm, name: event.target.value })} /></label>
-                  <label className="grid gap-1 text-sm">Description<Input value={scriptForm.description} onChange={(event) => setScriptForm({ ...scriptForm, description: event.target.value })} /></label>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Require license<Switch checked={scriptForm.requireLicense} onCheckedChange={(value) => setScriptForm({ ...scriptForm, requireLicense: value })} /></label>
-                  <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Active<Switch checked={scriptForm.isActive} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isActive: value })} /></label>
-                </div>
-                <Textarea className="mt-3 min-h-[430px] resize-y text-sm" spellCheck={false} value={scriptForm.sourceCode} onChange={(event) => setScriptForm({ ...scriptForm, sourceCode: event.target.value })} placeholder="Paste authorized Luau source here" />
-              </div>
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Final loader</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Copy status appears after every button action.</p>
-                <div className="mono-box mt-4 rounded-md border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">{loader || "Save a script first."}</div>
-                <Button className="mt-3 w-full" onClick={() => copyText("Loader", loader)} disabled={!loader}><Copy /> Copy loadstring</Button>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <Metric label="Licenses" value={scriptLicenses.length} />
-                  <Metric label="Live" value={scriptSessions.filter((s) => s.status === "active").length} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="licenses" className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Create license</h2>
-                <label className="mt-4 grid gap-1 text-sm">Script<Select value={selectedScriptId} onValueChange={setActiveScriptId}><SelectTrigger><SelectValue placeholder="Choose script" /></SelectTrigger><SelectContent>{scripts.map((script) => <SelectItem key={script.id} value={script.id}>{script.name}</SelectItem>)}</SelectContent></Select></label>
-                <label className="mt-3 grid gap-1 text-sm">Label<Input value={licenseLabel} onChange={(event) => setLicenseLabel(event.target.value)} placeholder="Customer or note" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Duration<Select value={licenseMinutes} onValueChange={setLicenseMinutes}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">Permanent</SelectItem><SelectItem value="15">15 minutes</SelectItem><SelectItem value="60">1 hour</SelectItem><SelectItem value="1440">1 day</SelectItem><SelectItem value="10080">7 days</SelectItem><SelectItem value="43200">30 days</SelectItem></SelectContent></Select></label>
-                <label className="mt-3 grid gap-1 text-sm">Users allowed<Select value={licenseSeats} onValueChange={setLicenseSeats}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">1 user (personal key)</SelectItem><SelectItem value="2">2 users</SelectItem><SelectItem value="3">3 users</SelectItem><SelectItem value="5">5 users</SelectItem><SelectItem value="10">10 users</SelectItem><SelectItem value="25">25 users</SelectItem><SelectItem value="100">100 users</SelectItem><SelectItem value="0">Unlimited users</SelectItem></SelectContent></Select></label>
-                <p className="mt-2 text-xs text-muted-foreground">Each different player counts as one slot. Unlimited keys work like a public premium key.</p>
-                <Button className="mt-4 w-full" disabled={!selectedScriptId || !can.licenses} onClick={() => action.mutate({ type: "createLicense", payload: { scriptId: selectedScriptId, label: licenseLabel, durationMinutes: licenseMinutes === "0" ? null : Number(licenseMinutes), maxUsers: Number(licenseSeats) } })}><KeyRound /> Generate key</Button>
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg">
-                <ResponsiveRows rows={scriptLicenses} empty="No licenses yet." render={(license) => (
-                  <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7rem_13rem] lg:items-center">
-                    <div className="min-w-0"><div className="mono-box font-mono text-sm">{license.license_key}</div><div className="mt-1 text-xs text-muted-foreground">{license.label || "Untitled"} · {license.bound_player_name || "unused"}</div></div>
-                    <div className="text-sm text-muted-foreground"><div className="capitalize">{license.status}</div><div className="text-xs">{license.seat_count ?? 0}/{license.max_users ? license.max_users : "∞"} users</div></div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="text-xs text-muted-foreground">{formatTimeLeft(license.expires_at)}</div>
-                      <div className="flex flex-wrap gap-2 lg:justify-end"><Button size="sm" variant="outline" onClick={() => copyText("License key", license.license_key)}><Copy />Copy</Button><Button size="sm" variant="outline" disabled={!can.licenses} onClick={() => { const value = prompt("Maximum users for this key (0 = unlimited)", String(license.max_users ?? 0)); if (value === null) return; const parsedValue = Number(value); if (!Number.isFinite(parsedValue) || parsedValue < 0) return; action.mutate({ type: "setLicenseLimit", payload: { id: license.id, maxUsers: Math.floor(parsedValue) } }); }}>Limit</Button><Button size="sm" variant="outline" disabled={!can.licenses} onClick={() => { if (!confirm("Free every user slot on this key?")) return; action.mutate({ type: "resetLicenseSeats", payload: { id: license.id } }); }}>Reset users</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setLicenseStatus", payload: { id: license.id, status: license.status === "active" ? "revoked" : "active", reason: "Changed from dashboard" } })}>{license.status === "active" ? "Revoke" : "Restore"}</Button><Button size="sm" variant="destructive" onClick={() => { if (!confirm("Delete this license key?")) return; action.mutate({ type: "deleteLicense", payload: { id: license.id } }); }}><Trash2 />Delete</Button></div>
-                    </div>
-                  </div>
-                )} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="players" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-              <div className="app-panel overflow-hidden rounded-lg">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
-                  <h2 className="text-lg font-semibold">Live players ({liveSessions.length})</h2>
-                  <div className="text-xs text-muted-foreground">Auto-refresh every 10s · stale after 45s</div>
-                </div>
-                <ResponsiveRows rows={liveSessions} empty="No live players right now." render={(session) => {
-                  const draft = messageDrafts[session.id] ?? "";
-                  const joinUrl = session.place_id && session.job_id
-                    ? `roblox://experiences/start?placeId=${session.place_id}&gameInstanceId=${session.job_id}`
-                    : "";
-                  return (
-                    <div className="grid gap-3 p-4">
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                        <div>
-                          <div className="font-semibold">{session.player_name || "Unknown"} <span className="ml-2 text-xs font-normal text-muted-foreground">[{scriptNameById(session.script_id)}]</span></div>
-                          <div className="text-xs text-muted-foreground">
-                            UserId {session.player_user_id || "n/a"} · {session.executor_name || "runtime"} · {Math.round((session.total_seconds ?? 0) / 60)} min
-                          </div>
-                          <div className="text-xs text-muted-foreground">Place {session.place_id || "?"} · Job {session.job_id || "?"}</div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {joinUrl && (
-                            <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join server</a></Button>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "kickSession", payload: { id: session.id, reason: banReason } })}>Kick</Button>
-                          <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "script", scriptId: session.script_id, playerUserId: session.player_user_id, playerName: session.player_name || "unknown", licenseId: session.license_id, includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Input placeholder="Message to player…" value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [session.id]: e.target.value })} />
-                        <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "sendMessage", payload: { id: session.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [session.id]: "" }); }}><MessageSquare className="size-4" />Send</Button>
-                      </div>
-                      {session.pending_message && <div className="text-xs text-muted-foreground">Pending: {session.pending_message}</div>}
-                    </div>
-                  );
-                }} />
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg xl:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
-                  <h2 className="text-lg font-semibold">All known players ({history.length})</h2>
-                  <div className="text-xs text-muted-foreground">Control any player who ran the script once · presence refreshed every 20s</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-                  <Input className="max-w-xs" placeholder="Search name, UserId, executor…" value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} />
-                  <Select value={presenceFilter} onValueChange={(v) => setPresenceFilter(v as typeof presenceFilter)}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All players</SelectItem>
-                      <SelectItem value="ingame">In game</SelectItem>
-                      <SelectItem value="online">Online</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                      <SelectItem value="watchlist">Watchlist</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <ResponsiveRows
-                  rows={history.filter((h: any) => {
-                    const q = playerSearch.trim().toLowerCase();
-                    if (q && !`${h.player_name ?? ""} ${h.player_user_id ?? ""} ${h.executor_name ?? ""}`.toLowerCase().includes(q)) return false;
-                    if (presenceFilter === "ingame") return h.presence_type === 2;
-                    if (presenceFilter === "online") return h.presence_type === 1;
-                    if (presenceFilter === "offline") return !h.presence_type || h.presence_type === 0;
-                    if (presenceFilter === "watchlist") return Boolean(h.is_watchlisted);
-                    return true;
-                  })}
-                  empty="No players match your filter."
-                  render={(row: any) => {
-                    const draft = messageDrafts[`hist:${row.id}`] ?? "";
-                    const noteDraft = noteDrafts[`hist:${row.id}`] ?? row.notes ?? "";
-                    const joinUrl = row.place_id && row.job_id
-                      ? `roblox://experiences/start?placeId=${row.place_id}&gameInstanceId=${row.job_id}`
-                      : "";
-                    const presenceLabel = row.presence_type === 2 ? "In game" : row.presence_type === 1 ? "Online" : row.presence_type === 3 ? "In Studio" : "Offline";
-                    const presenceTone = row.presence_type === 2 ? "bg-primary text-primary-foreground" : row.presence_type === 1 ? "bg-muted text-foreground" : "bg-muted text-muted-foreground";
-                    return (
-                      <div className={`grid gap-3 p-4 ${row.is_watchlisted ? "border-l-4 border-destructive" : ""}`}>
-                        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold">{row.player_name || "Unknown"}</span>
-                              <span className={`rounded px-2 py-0.5 text-xs ${presenceTone}`}>{presenceLabel}</span>
-                              {row.is_watchlisted && <span className="rounded bg-destructive px-2 py-0.5 text-xs text-destructive-foreground">Watchlist</span>}
-                              <span className="text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span>
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">{row.presence_last_location || "—"} · executor {row.executor_name || "unknown"} · {row.connection_count} launches</div>
-                            <div className="text-xs text-muted-foreground">Place {row.place_id || "?"} · Job {row.job_id || "?"} · last seen {new Date(row.last_seen_at).toLocaleString()}</div>
-                            {(row.pending_message || row.pending_kick_reason) && (
-                              <div className="mt-1 flex items-center gap-2 text-xs text-primary">
-                                Queued: {row.pending_kick_reason ? `kick (${row.pending_kick_reason})` : `message (${row.pending_message})`}
-                                <button className="underline" onClick={() => action.mutate({ type: "clearQueuedActions", payload: { id: row.id } })}>clear</button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-2 lg:justify-end">
-                            {joinUrl && (
-                              <Button size="sm" variant="outline" asChild><a href={joinUrl}><ExternalLink className="size-4" />Join</a></Button>
-                            )}
-                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, isWatchlisted: !row.is_watchlisted } })}>{row.is_watchlisted ? "Unflag" : "Watchlist"}</Button>
-                            <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, kickReason: banReason } })}>Kick</Button>
-                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: false, reason: banReason } })}><Ban className="size-4" />Ban</Button>
-                            <Button size="sm" variant="destructive" onClick={() => action.mutate({ type: "addBan", payload: { scope: "global", playerUserId: row.player_user_id, playerName: row.player_name || "unknown", includeIp: true, ipHash: row.ip_hash, reason: banReason } })}><Ban className="size-4" />Ban + IP</Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Input className="flex-1 min-w-[12rem]" placeholder={row.presence_type === 2 ? "Message (delivers now if in a session, else on next launch)" : "Queue message for next launch…"} value={draft} onChange={(e) => setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: e.target.value })} />
-                          <Button size="sm" variant="outline" disabled={!draft.trim()} onClick={() => { action.mutate({ type: "queueHistoryAction", payload: { historyId: row.id, message: draft.trim() } }); setMessageDrafts({ ...messageDrafts, [`hist:${row.id}`]: "" }); }}><MessageSquare className="size-4" />Send</Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Input className="flex-1 min-w-[12rem]" placeholder="Moderation notes (only staff sees this)…" value={noteDraft} onChange={(e) => setNoteDrafts({ ...noteDrafts, [`hist:${row.id}`]: e.target.value })} />
-                          <Button size="sm" variant="outline" disabled={noteDraft === (row.notes ?? "")} onClick={() => action.mutate({ type: "updateHistory", payload: { id: row.id, notes: noteDraft } })}>Save note</Button>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Default kick reason</h2>
-                <Textarea className="mt-3 min-h-24" value={banReason} onChange={(event) => setBanReason(event.target.value)} />
-                <p className="mt-2 text-xs text-muted-foreground">Used when kicking or quick-banning live players.</p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="history" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Ban a player</h2>
-                <p className="mt-1 text-xs text-muted-foreground">Ban directly by Roblox username.</p>
-                <label className="mt-4 grid gap-1 text-sm">Roblox username<Input value={banForm.playerName} onChange={(e) => setBanForm({ ...banForm, playerName: e.target.value })} placeholder="e.g. Builderman" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Scope
-                  <Select value={banForm.scope} onValueChange={(v) => setBanForm({ ...banForm, scope: v as "global" | "script" })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="global">All scripts</SelectItem>
-                      <SelectItem value="script">Specific script</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                {banForm.scope === "script" && (
-                  <label className="mt-3 grid gap-1 text-sm">Script
-                    <Select value={banForm.scriptId} onValueChange={(v) => setBanForm({ ...banForm, scriptId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-                      <SelectContent>{scripts.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </label>
-                )}
-                <label className="mt-3 grid gap-1 text-sm">Duration
-                  <Select value={banForm.duration} onValueChange={(v) => setBanForm({ ...banForm, duration: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">Permanent</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                      <SelectItem value="1440">1 day</SelectItem>
-                      <SelectItem value="10080">7 days</SelectItem>
-                      <SelectItem value="43200">30 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Include IP ban<Switch checked={banForm.includeIp} onCheckedChange={(v) => setBanForm({ ...banForm, includeIp: v })} /></label>
-                <label className="mt-3 grid gap-1 text-sm">Reason<Textarea value={banForm.reason} onChange={(e) => setBanForm({ ...banForm, reason: e.target.value })} className="min-h-20" /></label>
-                <Button
-                  className="mt-4 w-full"
-                  disabled={!can.bans || !banForm.playerName.trim() || (banForm.scope === "script" && !banForm.scriptId)}
-                  onClick={() => {
-                    // find matching history row for ip_hash if includeIp
-                    const hist = history.find((h: any) => h.player_name?.toLowerCase() === banForm.playerName.trim().toLowerCase());
-                    action.mutate({
-                      type: "addBan",
-                      payload: {
-                        scope: banForm.scope,
-                        scriptId: banForm.scope === "script" ? banForm.scriptId : null,
-                        playerName: banForm.playerName.trim(),
-                        playerUserId: hist?.player_user_id || "",
-                        includeIp: banForm.includeIp,
-                        ipHash: hist?.ip_hash || null,
-                        durationMinutes: banForm.duration === "0" ? null : Number(banForm.duration),
-                        reason: banForm.reason,
-                      },
-                    });
-                  }}
-                ><Ban className="size-4" />Ban player</Button>
-              </div>
-              <div className="grid gap-4">
-                <div className="app-panel overflow-hidden rounded-lg">
-                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Active bans ({(data?.bans ?? []).filter((b: any) => b.is_active).length})</h2></div>
-                  <ResponsiveRows rows={data?.bans ?? []} empty="No bans." render={(ban: any) => (
-                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                      <div>
-                        <div className="font-medium">{ban.player_name || ban.player_user_id || "License/IP ban"} <span className="ml-2 text-xs text-muted-foreground">{ban.scope === "global" ? "all scripts" : scriptNameById(ban.script_id)}</span></div>
-                        <div className="text-xs text-muted-foreground">{ban.reason} {ban.ip_hash ? "· IP" : ""} {ban.expires_at ? `· until ${new Date(ban.expires_at).toLocaleString()}` : "· permanent"}</div>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => action.mutate({ type: "setBanActive", payload: { id: ban.id, isActive: !ban.is_active } })}>{ban.is_active ? "Disable" : "Enable"}</Button>
-                    </div>
-                  )} />
-                </div>
-                <div className="app-panel overflow-hidden rounded-lg">
-                  <div className="border-b border-border p-4"><h2 className="text-lg font-semibold">Historical players ({history.length})</h2></div>
-                  <ResponsiveRows rows={history} empty="No player history yet." render={(row: any) => (
-                    <div className="grid gap-2 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                      <div>
-                        <div className="font-medium">{row.player_name || "Unknown"} <span className="ml-2 text-xs text-muted-foreground">UserId {row.player_user_id || "n/a"}</span></div>
-                        <div className="text-xs text-muted-foreground">{row.executor_name || "runtime"} · {row.connection_count} launches · last {new Date(row.last_seen_at).toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">IP {row.ip_hash ? row.ip_hash.slice(0, 12) + "…" : "n/a"}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setBanForm({ ...banForm, playerName: row.player_name || "", scope: "global" })}><Ban className="size-4" />Prep ban</Button>
-                        <Button size="sm" variant="destructive" onClick={() => { if (!confirm("Remove this history entry?")) return; action.mutate({ type: "deleteHistory", payload: { id: row.id } }); }}><Trash2 className="size-4" /></Button>
-                      </div>
-                    </div>
-                  )} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="staff" className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Create staff account</h2>
-                <p className="mt-1 text-xs text-muted-foreground">Owner creates the account directly — no signup needed.</p>
-                <label className="mt-4 grid gap-1 text-sm">Username<Input value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} placeholder="e.g. staff_alex" /></label>
-                <label className="mt-3 grid gap-1 text-sm">Password<Input type="password" value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} placeholder="Min. 6 characters" /></label>
-                <div className="mt-4 grid gap-2">{Object.entries(staffPermissions).map(([key, value]) => <label key={key} className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm"><span>{key.replace(/([A-Z])/g, " $1")}</span><Switch checked={value} onCheckedChange={(checked) => setStaffPermissions({ ...staffPermissions, [key]: checked })} /></label>)}</div>
-                <Button
-                  className="mt-4 w-full"
-                  disabled={!can.users || staffUsername.length < 3 || staffPassword.length < 6}
-                  onClick={() => {
-                    action.mutate(
-                      { type: "createStaffAccount", payload: { username: staffUsername, password: staffPassword, ...staffPermissions } },
-                      { onSuccess: () => { setStaffUsername(""); setStaffPassword(""); } },
-                    );
-                  }}
-                ><UserCog /> Create account</Button>
-                <Button
-                  className="mt-2 w-full"
-                  variant="outline"
-                  disabled={!can.users || staffUsername.length < 3}
-                  onClick={() => action.mutate({ type: "upsertStaff", payload: { username: staffUsername, ...staffPermissions } })}
-                >Update existing user's permissions</Button>
-                <p className="mt-2 text-xs text-muted-foreground">Login email will be <code>username@babis.local</code>.</p>
-              </div>
-              <div className="app-panel overflow-hidden rounded-lg"><ResponsiveRows rows={data?.users ?? []} empty="No accounts yet." render={(user: any) => <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="font-semibold">{user.username}</div><div className="text-xs text-muted-foreground">{user.account_status}</div></div><Button variant="outline" size="sm" onClick={() => action.mutate({ type: "removeStaff", payload: { userId: user.id } })} disabled={!can.users}>Remove staff</Button></div>} /></div>
-            </TabsContent>
-
-            <TabsContent value="settings" className="grid gap-4">
-              <div className="app-panel rounded-lg p-4 sm:p-5">
-                <h2 className="text-lg font-semibold">Discord invite link</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Used in the loader GUI and in every kick / appeal message. Changing it updates all existing bans too.
-                </p>
-                <label className="mt-4 grid gap-1 text-sm">
-                  Invite URL
-                  <Input value={discordLink} onChange={(event) => setDiscordLink(event.target.value)} placeholder="https://discord.gg/..." />
-                </label>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    disabled={!can.owner || action.isPending || !/^https?:\/\//.test(discordLink.trim())}
-                    onClick={() => action.mutate({ type: "updateDiscordLink", payload: { url: discordLink.trim() } })}
-                  ><Save /> Save link</Button>
-                  <Button variant="outline" onClick={() => copyText("Discord link", discordLink.trim())}><Copy /> Copy</Button>
-                  {discordLink.trim() ? (
-                    <a href={discordLink.trim()} target="_blank" rel="noreferrer" className="inline-flex">
-                      <Button variant="outline"><ExternalLink /> Open</Button>
-                    </a>
-                  ) : null}
-                </div>
-                {!can.owner ? <p className="mt-3 text-xs text-muted-foreground">Only the owner can change this link.</p> : null}
-                <p className="mt-3 text-xs text-muted-foreground">Current live link: <code>{data?.discordInviteUrl ?? "—"}</code></p>
-              </div>
-            </TabsContent>
-          </Tabs>
+      <main className="relative mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+        {/* Hero */}
+        <section className="reveal py-16 text-center sm:py-24">
+          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-1.5 text-xs text-muted-foreground">
+            <span className="size-2 animate-pulse rounded-full bg-primary" /> Trusted Roblox script hub
+          </div>
+          <h1 className="text-balance text-4xl font-semibold leading-tight sm:text-6xl">
+            Premium Roblox scripts, <span className="text-primary">one click away</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
+            Copy a loader, grab a premium key, and get instant support. Undetected loaders, live moderation and fast updates.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button size="lg" onClick={() => scrollTo("scripts")}>Browse scripts</Button>
+            <Button size="lg" variant="outline" onClick={() => scrollTo("premium")}>See premium plans</Button>
+          </div>
         </section>
-      </div>
-    </main>
+
+        {/* Scripts */}
+        <Section id="scripts" title="Scripts" subtitle="Copy the loader and paste it in your executor." action={<OwnerBar table="shop_items" />}>
+          <div className="grid gap-4 md:grid-cols-2">
+            {scripts.map((item, index) => (
+              <article key={item.id} className="card-hover reveal app-panel rounded-xl p-5" style={{ animationDelay: `${index * 70}ms` }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">{item.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                  </div>
+                  {item.badge && <span className="badge-pill">{item.badge}</span>}
+                </div>
+                {Array.isArray(item.features) && item.features.length > 0 && (
+                  <ul className="mt-4 grid gap-1.5 text-sm">
+                    {item.features.map((feature: string) => (
+                      <li key={feature} className="flex items-start gap-2 text-muted-foreground">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {feature}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {item.image_url && (
+                  <img src={item.image_url} alt={`${item.title} preview`} loading="lazy" className="mt-4 w-full rounded-lg border border-border object-cover" />
+                )}
+                {item.loader_command && (
+                  <div className="mono-box mt-4 rounded-lg border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">
+                    {item.loader_command}
+                  </div>
+                )}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-primary">{item.price_label || (item.price_cents ? money(item.price_cents, item.currency) : "Free")}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {item.loader_command && (
+                      <Button size="sm" onClick={() => copyText("Loader", item.loader_command)}>
+                        <Copy className="size-4" /> Copy loader
+                      </Button>
+                    )}
+                    {item.price_cents > 0 && (
+                      <Button size="sm" variant="outline" onClick={() => addToCart({ kind: "shop_items", id: item.id, title: item.title, priceCents: item.price_cents })}>
+                        <ShoppingCart className="size-4" /> Add to cart
+                      </Button>
+                    )}
+                    <OwnerBar table="shop_items" row={item} />
+                  </div>
+                </div>
+              </article>
+            ))}
+            {scripts.length === 0 && <Empty text="No scripts published yet." />}
+          </div>
+        </Section>
+
+        {/* Premium */}
+        <Section id="premium" title="Premium plans" subtitle="Support the project and unlock every premium script." action={<OwnerBar table="pricing_plans" />}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {plans.map((plan, index) => (
+              <article
+                key={plan.id}
+                className={`card-hover reveal app-panel relative rounded-xl p-5 ${plan.highlight ? "ring-2 ring-primary" : ""}`}
+                style={{ animationDelay: `${index * 70}ms` }}
+              >
+                {plan.highlight && <span className="badge-pill absolute -top-3 left-5">Most popular</span>}
+                <div className="text-3xl">{plan.emoji}</div>
+                <h3 className="mt-2 text-lg font-semibold">{plan.name}</h3>
+                <div className="mt-1 text-2xl font-semibold text-primary">{plan.price_label || money(plan.price_cents, plan.currency)}</div>
+                <p className="mt-1 text-sm text-muted-foreground">{plan.subtitle}</p>
+                {Array.isArray(plan.perks) && (
+                  <ul className="mt-4 grid gap-1.5 text-sm">
+                    {plan.perks.map((perk: string) => (
+                      <li key={perk} className="flex items-start gap-2 text-muted-foreground">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {perk}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button
+                  className="mt-5 w-full"
+                  variant={plan.highlight ? "default" : "outline"}
+                  onClick={() => addToCart({ kind: "pricing_plans", id: plan.id, title: plan.name, priceCents: plan.price_cents })}
+                >
+                  {plan.cta_label || "Buy now"}
+                </Button>
+                <div className="mt-3 flex justify-end">
+                  <OwnerBar table="pricing_plans" row={plan} />
+                </div>
+              </article>
+            ))}
+            {plans.length === 0 && <Empty text="No plans published yet." />}
+          </div>
+        </Section>
+
+        {/* Videos */}
+        <Section id="videos" title="Showcases" subtitle="See the scripts in action." action={<OwnerBar table="site_videos" />}>
+          <div className="grid gap-4 md:grid-cols-2">
+            {videos.map((video, index) => (
+              <article key={video.id} className="reveal app-panel overflow-hidden rounded-xl" style={{ animationDelay: `${index * 70}ms` }}>
+                <div className="aspect-video w-full bg-muted">
+                  <iframe
+                    src={embedUrl(video.video_url)}
+                    title={video.title}
+                    loading="lazy"
+                    allowFullScreen
+                    className="size-full"
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-3 p-4">
+                  <div>
+                    <h3 className="font-semibold">{video.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{video.description}</p>
+                  </div>
+                  <OwnerBar table="site_videos" row={video} />
+                </div>
+              </article>
+            ))}
+            {videos.length === 0 && <Empty text="No videos yet." />}
+          </div>
+        </Section>
+
+        {/* Reviews */}
+        <Section id="reviews" title="Reviews" subtitle="Create an account to leave your review.">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="grid gap-3">
+              {reviews.map((review, index) => (
+                <article key={review.id} className="reveal app-panel rounded-xl p-4" style={{ animationDelay: `${index * 50}ms` }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{review.author_name}</div>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star key={n} className={`size-4 ${n <= review.rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{review.body}</p>
+                  {(isOwner || review.user_id === viewerId) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mt-2"
+                      onClick={() =>
+                        deleteReviewFn({ data: { id: review.id } })
+                          .then(() => queryClient.invalidateQueries({ queryKey: ["site-content"] }))
+                          .catch((error: Error) => toast.error(error.message))
+                      }
+                    >
+                      <Trash2 className="size-3.5" /> Delete
+                    </Button>
+                  )}
+                </article>
+              ))}
+              {reviews.length === 0 && <Empty text="No reviews yet — be the first!" />}
+            </div>
+            <div className="app-panel h-fit rounded-xl p-4">
+              <h3 className="font-semibold">Leave a review</h3>
+              {signedIn ? (
+                <>
+                  <div className="mt-3 flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} onClick={() => setReviewRating(n)} aria-label={`${n} stars`}>
+                        <Star className={`size-6 transition ${n <= reviewRating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                      </button>
+                    ))}
+                  </div>
+                  <Textarea className="mt-3" rows={4} value={reviewBody} onChange={(e) => setReviewBody(e.target.value)} placeholder="What did you think?" />
+                  <Button className="mt-3 w-full" disabled={reviewBody.trim().length < 3 || reviewMutation.isPending} onClick={() => reviewMutation.mutate()}>
+                    Post review
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-muted-foreground">You need an account to post a review.</p>
+                  <Button className="mt-3 w-full" onClick={() => setAuthOpen(true)}>Create an account</Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Section>
+
+        {/* FAQ */}
+        <Section id="faq" title="FAQ" subtitle="Everything you need to know." action={<OwnerBar table="site_faq" />}>
+          <div className="grid gap-2">
+            {faq.map((entry) => {
+              const open = openFaq === entry.id;
+              return (
+                <div key={entry.id} className="app-panel overflow-hidden rounded-xl">
+                  <button className="flex w-full items-center justify-between gap-3 p-4 text-left" onClick={() => setOpenFaq(open ? null : entry.id)}>
+                    <span className="font-medium">{entry.question}</span>
+                    <ChevronDown className={`size-4 shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  <div className={`faq-body ${open ? "is-open" : ""}`}>
+                    <p className="px-4 pb-4 text-sm text-muted-foreground">{entry.answer}</p>
+                    {isOwner && (
+                      <div className="px-4 pb-4">
+                        <OwnerBar table="site_faq" row={entry} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {faq.length === 0 && <Empty text="No questions yet." />}
+          </div>
+        </Section>
+
+        {/* Social */}
+        <Section id="social" title="Social media" subtitle="Follow Babis everywhere." action={<OwnerBar table="site_links" />}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {links.map((link, index) => (
+              <article key={link.id} className="card-hover reveal app-panel rounded-xl p-4" style={{ animationDelay: `${index * 60}ms` }}>
+                <div className="text-xs uppercase tracking-wide text-primary">{link.platform}</div>
+                <h3 className="mt-1 font-semibold">{link.label}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{link.description}</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={link.url} target="_blank" rel="noreferrer noopener">Open</a>
+                  </Button>
+                  <OwnerBar table="site_links" row={link} />
+                </div>
+              </article>
+            ))}
+            {links.length === 0 && <Empty text="No links yet." />}
+          </div>
+        </Section>
+      </main>
+
+      <footer className="border-t border-border/60 py-8 text-center text-sm text-muted-foreground">
+        © {new Date().getFullYear()} Babis Scripts · <Link to="/auth" className="hover:text-foreground">Staff login</Link>
+      </footer>
+
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        total={cartTotal}
+        setCart={setCart}
+        onPaid={() => {
+          setCart([]);
+          setCartOpen(false);
+        }}
+      />
+
+      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+
+      {editor && (
+        <EditorDialog
+          table={editor.table}
+          row={editor.row}
+          onClose={() => setEditor(null)}
+          onSave={(row) => saveMutation.mutate({ table: editor.table, id: editor.row?.id ?? null, row })}
+          saving={saveMutation.isPending}
+        />
+      )}
+    </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{value}</div><div className="text-xs text-muted-foreground">{label}</div></div>;
+function Section({
+  id,
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  id: string;
+  title: string;
+  subtitle: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={`section-${id}`} className="scroll-mt-24 py-10">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold sm:text-3xl">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function ResponsiveRows({ rows, empty, render }: { rows: any[]; empty: string; render: (row: any) => ReactNode }) {
-  if (!rows.length) return <div className="p-6 text-sm text-muted-foreground">{empty}</div>;
-  return <div className="divide-y divide-border">{rows.map((row) => <div key={row.id}>{render(row)}</div>)}</div>;
+function Empty({ text }: { text: string }) {
+  return <div className="app-panel rounded-xl p-6 text-center text-sm text-muted-foreground">{text}</div>;
 }
 
-function formatTimeLeft(expiresAt: string | null | undefined): string {
-  if (!expiresAt) return "Permanent";
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return "Expired";
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins}m left`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ${mins % 60}m left`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ${hrs % 24}h left`;
+function EditorDialog({
+  table,
+  row,
+  onClose,
+  onSave,
+  saving,
+}: {
+  table: TableName;
+  row: Row;
+  onClose: () => void;
+  onSave: (row: Row) => void;
+  saving: boolean;
+}) {
+  const fields = FIELDS[table];
+  const [form, setForm] = useState<Row>(() => {
+    const initial: Row = {};
+    for (const field of fields) {
+      const value = row[field.key];
+      if (field.type === "list") initial[field.key] = Array.isArray(value) ? value.join("\n") : "";
+      else if (field.type === "bool") initial[field.key] = value ?? true;
+      else if (field.type === "number") initial[field.key] = value ?? 0;
+      else initial[field.key] = value ?? "";
+    }
+    return initial;
+  });
+
+  function submit() {
+    const payload: Row = {};
+    for (const field of fields) {
+      const value = form[field.key];
+      if (field.type === "list") payload[field.key] = String(value).split("\n").map((s) => s.trim()).filter(Boolean);
+      else if (field.type === "number") payload[field.key] = Number(value) || 0;
+      else if (field.type === "bool") payload[field.key] = Boolean(value);
+      else payload[field.key] = String(value ?? "");
+    }
+    onSave(payload);
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{row.id ? "Edit" : "Add"}</DialogTitle>
+          <DialogDescription>Changes go live on the site immediately.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          {fields.map((field) => (
+            <label key={field.key} className="grid gap-1 text-sm">
+              {field.label}
+              {field.type === "textarea" || field.type === "list" ? (
+                <Textarea rows={field.type === "list" ? 4 : 3} value={form[field.key]} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} />
+              ) : field.type === "bool" ? (
+                <Switch checked={Boolean(form[field.key])} onCheckedChange={(v) => setForm({ ...form, [field.key]: v })} />
+              ) : (
+                <Input
+                  type={field.type === "number" ? "number" : "text"}
+                  value={form[field.key]}
+                  onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                />
+              )}
+            </label>
+          ))}
+        </div>
+        <Button className="mt-2" onClick={submit} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const clean = username.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,32}$/.test(clean)) return toast.error("Username: 3-32 letters, numbers or _");
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (mode === "signup" && password !== confirm) return toast.error("Passwords do not match");
+    setBusy(true);
+    try {
+      const email = `${clean}@babis.local`;
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/`, data: { username: clean } },
+        });
+        if (error) throw error;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+      toast.success(mode === "signup" ? "Account created" : "Signed in");
+      onClose();
+    } catch (error) {
+      toast.error("Failed", { description: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{mode === "signup" ? "Create an account" : "Sign in"}</DialogTitle>
+          <DialogDescription>Username and password only — no email needed.</DialogDescription>
+        </DialogHeader>
+        <form className="grid gap-3" onSubmit={submit}>
+          <label className="grid gap-1 text-sm">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" /></label>
+          <label className="grid gap-1 text-sm">Password<Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
+          {mode === "signup" && (
+            <label className="grid gap-1 text-sm">Confirm password<Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+          )}
+          <Button type="submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}</Button>
+        </form>
+        <Button variant="ghost" onClick={() => setMode(mode === "signup" ? "signin" : "signup")}>
+          {mode === "signup" ? "I already have an account" : "Create an account instead"}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CartDrawer({
+  open,
+  onClose,
+  cart,
+  total,
+  setCart,
+  onPaid,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cart: CartLine[];
+  total: number;
+  setCart: React.Dispatch<React.SetStateAction<CartLine[]>>;
+  onPaid: () => void;
+}) {
+  const loadConfig = useServerFn(getPaypalConfig);
+  const createOrder = useServerFn(createPaypalOrder);
+  const captureOrder = useServerFn(capturePaypalOrder);
+  const config = useQuery({ queryKey: ["paypal-config"], queryFn: () => loadConfig(), enabled: open });
+  const buttonsRef = useRef<HTMLDivElement | null>(null);
+  const [discordTag, setDiscordTag] = useState("");
+  const [ready, setReady] = useState(false);
+
+  const clientId = (config.data as any)?.clientId as string | undefined;
+
+  useEffect(() => {
+    if (!open || !clientId) return;
+    const existing = document.getElementById("paypal-sdk");
+    if (existing) {
+      setReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "paypal-sdk";
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=EUR&components=buttons&enable-funding=card,paylater`;
+    script.onload = () => setReady(true);
+    script.onerror = () => toast.error("PayPal could not be loaded");
+    document.body.appendChild(script);
+  }, [open, clientId]);
+
+  useEffect(() => {
+    const paypal = (window as any).paypal;
+    if (!open || !ready || !paypal || !buttonsRef.current || cart.length === 0) return;
+    const container = buttonsRef.current;
+    container.innerHTML = "";
+    const instance = paypal.Buttons({
+      style: { layout: "vertical", shape: "rect", color: "gold" },
+      createOrder: async () => {
+        const result: any = await createOrder({
+          data: {
+            items: cart.map((l) => ({ kind: l.kind, id: l.id, quantity: l.quantity })),
+            discordTag: discordTag.trim() || undefined,
+          },
+        });
+        return result.orderId;
+      },
+      onApprove: async (payload: { orderID: string }) => {
+        await captureOrder({ data: { orderId: payload.orderID } });
+        toast.success("Payment complete", { description: "Your key will be delivered on Discord." });
+        onPaid();
+      },
+      onError: (error: unknown) => toast.error("Payment failed", { description: String((error as Error)?.message ?? error) }),
+    });
+    instance.render(container).catch(() => {});
+    return () => {
+      try {
+        instance.close();
+      } catch { /* ignore */ }
+    };
+  }, [open, ready, cart, discordTag, createOrder, captureOrder, onPaid]);
+
+  return (
+    <>
+      <div className={`drawer-overlay ${open ? "is-open" : ""}`} onClick={onClose} />
+      <aside className={`cart-drawer ${open ? "is-open" : ""}`} aria-hidden={!open}>
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="font-semibold">Your cart</div>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>
+        </div>
+        <div className="grid gap-3 overflow-y-auto p-4">
+          {cart.length === 0 && <p className="text-sm text-muted-foreground">Your cart is empty.</p>}
+          {cart.map((line) => (
+            <div key={line.id} className="rounded-lg border border-border bg-muted p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-sm font-medium">{line.title}</div>
+                <button onClick={() => setCart((c) => c.filter((l) => l.id !== line.id))} className="text-muted-foreground hover:text-foreground">
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))}>
+                    <Minus className="size-3" />
+                  </Button>
+                  <span className="w-6 text-center text-sm">{line.quantity}</span>
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l)))}>
+                    <Plus className="size-3" />
+                  </Button>
+                </div>
+                <div className="text-sm font-semibold text-primary">{money(line.priceCents * line.quantity)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {cart.length > 0 && (
+          <div className="mt-auto border-t border-border p-4">
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Total</span>
+              <span className="text-lg font-semibold">{money(total)}</span>
+            </div>
+            <label className="grid gap-1 text-sm">
+              Discord tag (for delivery)
+              <Input value={discordTag} onChange={(e) => setDiscordTag(e.target.value)} placeholder="yourname" />
+            </label>
+            <div ref={buttonsRef} className="mt-4" />
+            <p className="mt-3 text-xs text-muted-foreground">
+              PayPal, credit/debit card, Apple Pay and Google Pay are offered when available on your device.
+            </p>
+          </div>
+        )}
+      </aside>
+    </>
+  );
 }
