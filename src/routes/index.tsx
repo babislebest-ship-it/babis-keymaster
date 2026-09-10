@@ -260,13 +260,15 @@ function Storefront() {
 
   function addToCart(line: Omit<CartLine, "quantity">) {
     setCart((current) => {
-      const existing = current.find((l) => l.id === line.id);
-      if (existing) return current.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
+      const key = lineKey(line);
+      const existing = current.find((l) => lineKey(l) === key);
+      if (existing) return current.map((l) => (lineKey(l) === key ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
       return [...current, { ...line, quantity: 1 }];
     });
     setCartOpen(true);
-    toast.success("Added to cart", { description: line.title });
+    toast.success("Added to cart", { description: line.scriptName ? `${line.title} — ${line.scriptName}` : line.title });
   }
+
 
   function scrollTo(key: string) {
     setMenuOpen(false);
