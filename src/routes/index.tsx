@@ -619,13 +619,36 @@ function Storefront() {
         cart={cart}
         total={cartTotal}
         setCart={setCart}
-        onPaid={() => {
+        onPaid={(keys) => {
           setCart([]);
           setCartOpen(false);
+          if (keys.length > 0) setDeliveredKeys(keys);
         }}
       />
 
+      {planPicker && (
+        <PlanScriptDialog
+          plan={planPicker}
+          scripts={(data?.scripts ?? []) as Array<{ id: string; name: string }>}
+          onClose={() => setPlanPicker(null)}
+          onConfirm={(script) => {
+            addToCart({
+              kind: "pricing_plans",
+              id: planPicker.id,
+              title: planPicker.name,
+              priceCents: planPicker.price_cents,
+              scriptId: script.id,
+              scriptName: script.name,
+            });
+            setPlanPicker(null);
+          }}
+        />
+      )}
+
+      {deliveredKeys && <KeysDialog keys={deliveredKeys} onClose={() => setDeliveredKeys(null)} onCopy={copyText} />}
+
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+
 
       {editor && (
         <EditorDialog
