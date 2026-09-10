@@ -148,6 +148,9 @@ type CartLine = {
 };
 type DeliveredKey = { key: string; scriptName: string; planName: string; expiresAt?: string | null };
 
+const lineKey = (l: { id: string; scriptId?: string | null }) => `${l.id}:${l.scriptId ?? ""}`;
+
+
 
 function Storefront() {
   const queryClient = useQueryClient();
