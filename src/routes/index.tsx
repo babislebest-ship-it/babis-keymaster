@@ -836,7 +836,7 @@ function CartDrawer({
   cart: CartLine[];
   total: number;
   setCart: React.Dispatch<React.SetStateAction<CartLine[]>>;
-  onPaid: () => void;
+  onPaid: (keys: DeliveredKey[]) => void;
 }) {
   const loadConfig = useServerFn(getPaypalConfig);
   const createOrder = useServerFn(createPaypalOrder);
