@@ -19,7 +19,7 @@ async function assertOwner(db: any, userId: string) {
 
 export const getSiteContent = createServerFn({ method: "GET" }).handler(async () => {
   const db = await admin();
-  const [items, plans, faq, videos, links, tabs, reviews, settings] = await Promise.all([
+  const [items, plans, faq, videos, links, tabs, reviews, settings, scripts] = await Promise.all([
     db.from("shop_items").select("*").order("sort_order"),
     db.from("pricing_plans").select("*").order("sort_order"),
     db.from("site_faq").select("*").order("sort_order"),
@@ -28,6 +28,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     db.from("site_tabs").select("*").order("sort_order"),
     db.from("site_reviews").select("*").order("created_at", { ascending: false }).limit(60),
     db.from("app_settings").select("discord_invite_url").limit(1).maybeSingle(),
+    db.from("scripts").select("id,name,is_active").eq("is_active", true).order("name"),
   ]);
   return {
     shopItems: items.data ?? [],
@@ -37,9 +38,11 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     links: links.data ?? [],
     tabs: tabs.data ?? [],
     reviews: reviews.data ?? [],
+    scripts: (scripts.data ?? []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
     discordInviteUrl: settings.data?.discord_invite_url ?? "",
   };
 });
+
 
 export const getViewerState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -172,6 +175,7 @@ const cartSchema = z.object({
         kind: z.enum(["shop_items", "pricing_plans"]),
         id: z.string().uuid(),
         quantity: z.number().int().min(1).max(20),
+        scriptId: z.string().uuid().nullable().optional(),
       }),
     )
     .min(1)
@@ -181,23 +185,71 @@ const cartSchema = z.object({
   discordTag: z.string().trim().max(80).optional(),
 });
 
+type OrderLine = {
+  kind: "shop_items" | "pricing_plans";
+  itemId: string;
+  name: string;
+  unit: number;
+  quantity: number;
+  scriptId: string | null;
+  scriptName: string | null;
+  durationMinutes: number | null;
+};
+
+function generateLicenseKey() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const block = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(4)))
+      .map((n) => alphabet[n % alphabet.length])
+      .join("");
+  return `BABIS-${block()}-${block()}-${block()}`;
+}
+
 export const createPaypalOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => cartSchema.parse(input))
   .handler(async ({ data }) => {
     const db = await admin();
     const currency = "EUR";
-    const lines: Array<{ name: string; unit: number; quantity: number }> = [];
+    const lines: OrderLine[] = [];
 
     for (const line of data.items) {
       const { data: row } = await db
         .from(line.kind)
-        .select(line.kind === "shop_items" ? "id,title,price_cents,is_published" : "id,name,price_cents,is_published")
+        .select(
+          line.kind === "shop_items"
+            ? "id,title,price_cents,is_published"
+            : "id,name,price_cents,is_published,license_duration_minutes",
+        )
         .eq("id", line.id)
         .maybeSingle();
       if (!row || row.is_published === false) throw new Error("An item in your cart is no longer available.");
       const price = Number(row.price_cents ?? 0);
       if (price <= 0) throw new Error("This item is not purchasable online.");
-      lines.push({ name: String(row.title ?? row.name ?? "Item").slice(0, 120), unit: price, quantity: line.quantity });
+
+      let scriptId: string | null = null;
+      let scriptName: string | null = null;
+      if (line.kind === "pricing_plans") {
+        if (!line.scriptId) throw new Error("Please choose the script for your premium plan.");
+        const { data: script } = await db
+          .from("scripts")
+          .select("id,name,is_active")
+          .eq("id", line.scriptId)
+          .maybeSingle();
+        if (!script || script.is_active === false) throw new Error("The selected script is not available.");
+        scriptId = script.id;
+        scriptName = script.name;
+      }
+
+      lines.push({
+        kind: line.kind,
+        itemId: String(row.id),
+        name: String(row.title ?? row.name ?? "Item").slice(0, 120),
+        unit: price,
+        quantity: line.quantity,
+        scriptId,
+        scriptName,
+        durationMinutes: line.kind === "pricing_plans" ? (row.license_duration_minutes ?? null) : null,
+      });
     }
 
     const totalCents = lines.reduce((sum, l) => sum + l.unit * l.quantity, 0);
@@ -217,7 +269,7 @@ export const createPaypalOrder = createServerFn({ method: "POST" })
               },
             },
             items: lines.map((l) => ({
-              name: l.name,
+              name: l.scriptName ? `${l.name} — ${l.scriptName}`.slice(0, 127) : l.name,
               quantity: String(l.quantity),
               unit_amount: { currency_code: currency, value: (l.unit / 100).toFixed(2) },
             })),
@@ -255,8 +307,53 @@ export const capturePaypalOrder = createServerFn({ method: "POST" })
     const status = res.ok ? String(json.status ?? "COMPLETED").toLowerCase() : "failed";
     await db.from("orders").update({ status }).eq("paypal_order_id", data.orderId);
     if (!res.ok) throw new Error(json?.message || "Payment could not be completed.");
-    return { ok: true, status };
+
+    // Automatic license delivery for paid premium plans.
+    const { data: order } = await db
+      .from("orders")
+      .select("id,items,delivered_keys,buyer_name,discord_tag")
+      .eq("paypal_order_id", data.orderId)
+      .maybeSingle();
+
+    const already = Array.isArray(order?.delivered_keys) ? order.delivered_keys : [];
+    if (!order || already.length > 0) {
+      return { ok: true, status, keys: already as Array<{ key: string; scriptName: string; planName: string }> };
+    }
+
+    const lines: OrderLine[] = Array.isArray(order.items) ? (order.items as OrderLine[]) : [];
+    const keys: Array<{ key: string; scriptName: string; planName: string; expiresAt: string | null }> = [];
+
+    for (const line of lines) {
+      if (line.kind !== "pricing_plans" || !line.scriptId) continue;
+      const { data: script } = await db.from("scripts").select("id,owner_id,name").eq("id", line.scriptId).maybeSingle();
+      if (!script) continue;
+      for (let i = 0; i < Math.max(1, Number(line.quantity ?? 1)); i += 1) {
+        const licenseKey = generateLicenseKey();
+        const duration = line.durationMinutes ? Number(line.durationMinutes) : null;
+        const expiresAt = duration ? new Date(Date.now() + duration * 60_000).toISOString() : null;
+        const { error } = await db.from("script_licenses").insert({
+          script_id: script.id,
+          license_key: licenseKey,
+          label: `${line.name} · ${order.discord_tag || order.buyer_name || "PayPal buyer"}`.slice(0, 120),
+          status: "active",
+          duration_minutes: duration,
+          expires_at: expiresAt,
+          max_users: 1,
+          all_scripts: false,
+          created_by: script.owner_id,
+        });
+        if (error) continue;
+        keys.push({ key: licenseKey, scriptName: script.name, planName: line.name, expiresAt });
+      }
+    }
+
+    if (keys.length > 0) {
+      await db.from("orders").update({ delivered_keys: keys }).eq("id", order.id);
+    }
+
+    return { ok: true, status, keys };
   });
+
 
 export const listMyOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

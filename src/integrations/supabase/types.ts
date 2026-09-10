@@ -83,6 +83,7 @@ export type Database = {
           buyer_name: string | null
           created_at: string
           currency: string
+          delivered_keys: Json
           discord_tag: string | null
           id: string
           items: Json
@@ -97,6 +98,7 @@ export type Database = {
           buyer_name?: string | null
           created_at?: string
           currency?: string
+          delivered_keys?: Json
           discord_tag?: string | null
           id?: string
           items?: Json
@@ -111,6 +113,7 @@ export type Database = {
           buyer_name?: string | null
           created_at?: string
           currency?: string
+          delivered_keys?: Json
           discord_tag?: string | null
           id?: string
           items?: Json
@@ -322,6 +325,7 @@ export type Database = {
           highlight: boolean
           id: string
           is_published: boolean
+          license_duration_minutes: number | null
           name: string
           perks: string[]
           price_cents: number
@@ -339,6 +343,7 @@ export type Database = {
           highlight?: boolean
           id?: string
           is_published?: boolean
+          license_duration_minutes?: number | null
           name: string
           perks?: string[]
           price_cents?: number
@@ -356,6 +361,7 @@ export type Database = {
           highlight?: boolean
           id?: string
           is_published?: boolean
+          license_duration_minutes?: number | null
           name?: string
           perks?: string[]
           price_cents?: number

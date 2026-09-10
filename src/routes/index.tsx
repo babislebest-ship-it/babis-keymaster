@@ -82,7 +82,9 @@ const FIELDS: Record<TableName, FieldSpec[]> = {
     { key: "price_cents", label: "Price in cents", type: "number" },
     { key: "subtitle", label: "Subtitle", type: "text" },
     { key: "perks", label: "Perks (one per line)", type: "list" },
+    { key: "license_duration_minutes", label: "License duration in minutes (empty = lifetime)", type: "number" },
     { key: "cta_label", label: "Button label", type: "text" },
+
     { key: "highlight", label: "Highlighted plan", type: "bool" },
     { key: "sort_order", label: "Position", type: "number" },
     { key: "is_published", label: "Visible on the site", type: "bool" },
@@ -135,7 +137,20 @@ function embedUrl(url: string) {
   return url;
 }
 
-type CartLine = { kind: "shop_items" | "pricing_plans"; id: string; title: string; priceCents: number; quantity: number };
+type CartLine = {
+  kind: "shop_items" | "pricing_plans";
+  id: string;
+  title: string;
+  priceCents: number;
+  quantity: number;
+  scriptId?: string | null;
+  scriptName?: string | null;
+};
+type DeliveredKey = { key: string; scriptName: string; planName: string; expiresAt?: string | null };
+
+const lineKey = (l: { id: string; scriptId?: string | null }) => `${l.id}:${l.scriptId ?? ""}`;
+
+
 
 function Storefront() {
   const queryClient = useQueryClient();
@@ -151,6 +166,9 @@ function Storefront() {
   const [authOpen, setAuthOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [planPicker, setPlanPicker] = useState<Row | null>(null);
+  const [deliveredKeys, setDeliveredKeys] = useState<DeliveredKey[] | null>(null);
+
   const [editor, setEditor] = useState<{ table: TableName; row: Row } | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
@@ -245,13 +263,15 @@ function Storefront() {
 
   function addToCart(line: Omit<CartLine, "quantity">) {
     setCart((current) => {
-      const existing = current.find((l) => l.id === line.id);
-      if (existing) return current.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
+      const key = lineKey(line);
+      const existing = current.find((l) => lineKey(l) === key);
+      if (existing) return current.map((l) => (lineKey(l) === key ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
       return [...current, { ...line, quantity: 1 }];
     });
     setCartOpen(true);
-    toast.success("Added to cart", { description: line.title });
+    toast.success("Added to cart", { description: line.scriptName ? `${line.title} — ${line.scriptName}` : line.title });
   }
+
 
   function scrollTo(key: string) {
     setMenuOpen(false);
@@ -443,7 +463,7 @@ function Storefront() {
                 <Button
                   className="mt-5 w-full"
                   variant={plan.highlight ? "default" : "outline"}
-                  onClick={() => addToCart({ kind: "pricing_plans", id: plan.id, title: plan.name, priceCents: plan.price_cents })}
+                  onClick={() => setPlanPicker(plan)}
                 >
                   {plan.cta_label || "Buy now"}
                 </Button>
@@ -599,13 +619,36 @@ function Storefront() {
         cart={cart}
         total={cartTotal}
         setCart={setCart}
-        onPaid={() => {
+        onPaid={(keys) => {
           setCart([]);
           setCartOpen(false);
+          if (keys.length > 0) setDeliveredKeys(keys);
         }}
       />
 
+      {planPicker && (
+        <PlanScriptDialog
+          plan={planPicker}
+          scripts={(data?.scripts ?? []) as Array<{ id: string; name: string }>}
+          onClose={() => setPlanPicker(null)}
+          onConfirm={(script) => {
+            addToCart({
+              kind: "pricing_plans",
+              id: planPicker.id,
+              title: planPicker.name,
+              priceCents: planPicker.price_cents,
+              scriptId: script.id,
+              scriptName: script.name,
+            });
+            setPlanPicker(null);
+          }}
+        />
+      )}
+
+      {deliveredKeys && <KeysDialog keys={deliveredKeys} onClose={() => setDeliveredKeys(null)} onCopy={copyText} />}
+
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+
 
       {editor && (
         <EditorDialog
@@ -793,7 +836,7 @@ function CartDrawer({
   cart: CartLine[];
   total: number;
   setCart: React.Dispatch<React.SetStateAction<CartLine[]>>;
-  onPaid: () => void;
+  onPaid: (keys: DeliveredKey[]) => void;
 }) {
   const loadConfig = useServerFn(getPaypalConfig);
   const createOrder = useServerFn(createPaypalOrder);
@@ -830,17 +873,21 @@ function CartDrawer({
       createOrder: async () => {
         const result: any = await createOrder({
           data: {
-            items: cart.map((l) => ({ kind: l.kind, id: l.id, quantity: l.quantity })),
+            items: cart.map((l) => ({ kind: l.kind, id: l.id, quantity: l.quantity, scriptId: l.scriptId ?? null })),
             discordTag: discordTag.trim() || undefined,
           },
         });
         return result.orderId;
       },
       onApprove: async (payload: { orderID: string }) => {
-        await captureOrder({ data: { orderId: payload.orderID } });
-        toast.success("Payment complete", { description: "Your key will be delivered on Discord." });
-        onPaid();
+        const result: any = await captureOrder({ data: { orderId: payload.orderID } });
+        const keys: DeliveredKey[] = Array.isArray(result?.keys) ? result.keys : [];
+        toast.success("Payment complete", {
+          description: keys.length > 0 ? "Your license key is ready." : "Your order has been recorded.",
+        });
+        onPaid(keys);
       },
+
       onError: (error: unknown) => toast.error("Payment failed", { description: String((error as Error)?.message ?? error) }),
     });
     instance.render(container).catch(() => {});
@@ -862,26 +909,30 @@ function CartDrawer({
         <div className="grid gap-3 overflow-y-auto p-4">
           {cart.length === 0 && <p className="text-sm text-muted-foreground">Your cart is empty.</p>}
           {cart.map((line) => (
-            <div key={line.id} className="rounded-lg border border-border bg-muted p-3">
+            <div key={lineKey(line)} className="rounded-lg border border-border bg-muted p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-medium">{line.title}</div>
-                <button onClick={() => setCart((c) => c.filter((l) => l.id !== line.id))} className="text-muted-foreground hover:text-foreground">
+                <div>
+                  <div className="text-sm font-medium">{line.title}</div>
+                  {line.scriptName && <div className="text-xs text-muted-foreground">Script: {line.scriptName}</div>}
+                </div>
+                <button onClick={() => setCart((c) => c.filter((l) => lineKey(l) !== lineKey(line)))} className="text-muted-foreground hover:text-foreground">
                   <Trash2 className="size-4" />
                 </button>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))}>
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (lineKey(l) === lineKey(line) ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))}>
                     <Minus className="size-3" />
                   </Button>
                   <span className="w-6 text-center text-sm">{line.quantity}</span>
-                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l)))}>
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (lineKey(l) === lineKey(line) ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l)))}>
                     <Plus className="size-3" />
                   </Button>
                 </div>
                 <div className="text-sm font-semibold text-primary">{money(line.priceCents * line.quantity)}</div>
               </div>
             </div>
+
           ))}
         </div>
         {cart.length > 0 && (
@@ -902,5 +953,102 @@ function CartDrawer({
         )}
       </aside>
     </>
+  );
+}
+
+function PlanScriptDialog({
+  plan,
+  scripts,
+  onClose,
+  onConfirm,
+}: {
+  plan: Row;
+  scripts: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onConfirm: (script: { id: string; name: string }) => void;
+}) {
+  const [selected, setSelected] = useState<string>(scripts[0]?.id ?? "");
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose your script</DialogTitle>
+          <DialogDescription>
+            {plan.name} unlocks one script. Pick the script your license key will be created for.
+          </DialogDescription>
+        </DialogHeader>
+        {scripts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No script is available right now. Please come back later.</p>
+        ) : (
+          <div className="grid max-h-72 gap-2 overflow-y-auto">
+            {scripts.map((script) => (
+              <button
+                key={script.id}
+                type="button"
+                onClick={() => setSelected(script.id)}
+                className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition ${
+                  selected === script.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted"
+                }`}
+              >
+                <span>{script.name}</span>
+                {selected === script.id && <Check className="size-4 text-primary" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <Button
+          className="w-full"
+          disabled={!selected}
+          onClick={() => {
+            const script = scripts.find((s) => s.id === selected);
+            if (script) onConfirm(script);
+          }}
+        >
+          <ShoppingCart className="size-4" /> Add to cart
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KeysDialog({
+  keys,
+  onClose,
+  onCopy,
+}: {
+  keys: DeliveredKey[];
+  onClose: () => void;
+  onCopy: (label: string, value: string) => void;
+}) {
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Your license keys</DialogTitle>
+          <DialogDescription>Keep them safe — paste a key in the loader window to unlock the script.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          {keys.map((entry) => (
+            <div key={entry.key} className="rounded-lg border border-border bg-muted p-3">
+              <div className="text-xs text-muted-foreground">
+                {entry.planName} · {entry.scriptName}
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <code className="text-sm font-semibold">{entry.key}</code>
+                <Button size="sm" variant="outline" onClick={() => onCopy("Key", entry.key)}>
+                  <Copy className="size-3.5" /> Copy
+                </Button>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {entry.expiresAt ? `Valid until ${new Date(entry.expiresAt).toLocaleString()}` : "Lifetime access"}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button className="w-full" onClick={onClose}>
+          Done
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
