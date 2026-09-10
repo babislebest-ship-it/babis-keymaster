@@ -909,26 +909,30 @@ function CartDrawer({
         <div className="grid gap-3 overflow-y-auto p-4">
           {cart.length === 0 && <p className="text-sm text-muted-foreground">Your cart is empty.</p>}
           {cart.map((line) => (
-            <div key={line.id} className="rounded-lg border border-border bg-muted p-3">
+            <div key={lineKey(line)} className="rounded-lg border border-border bg-muted p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-medium">{line.title}</div>
-                <button onClick={() => setCart((c) => c.filter((l) => l.id !== line.id))} className="text-muted-foreground hover:text-foreground">
+                <div>
+                  <div className="text-sm font-medium">{line.title}</div>
+                  {line.scriptName && <div className="text-xs text-muted-foreground">Script: {line.scriptName}</div>}
+                </div>
+                <button onClick={() => setCart((c) => c.filter((l) => lineKey(l) !== lineKey(line)))} className="text-muted-foreground hover:text-foreground">
                   <Trash2 className="size-4" />
                 </button>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))}>
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (lineKey(l) === lineKey(line) ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))}>
                     <Minus className="size-3" />
                   </Button>
                   <span className="w-6 text-center text-sm">{line.quantity}</span>
-                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l)))}>
+                  <Button size="icon" variant="outline" className="size-7" onClick={() => setCart((c) => c.map((l) => (lineKey(l) === lineKey(line) ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l)))}>
                     <Plus className="size-3" />
                   </Button>
                 </div>
                 <div className="text-sm font-semibold text-primary">{money(line.priceCents * line.quantity)}</div>
               </div>
             </div>
+
           ))}
         </div>
         {cart.length > 0 && (
