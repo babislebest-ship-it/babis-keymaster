@@ -873,17 +873,21 @@ function CartDrawer({
       createOrder: async () => {
         const result: any = await createOrder({
           data: {
-            items: cart.map((l) => ({ kind: l.kind, id: l.id, quantity: l.quantity })),
+            items: cart.map((l) => ({ kind: l.kind, id: l.id, quantity: l.quantity, scriptId: l.scriptId ?? null })),
             discordTag: discordTag.trim() || undefined,
           },
         });
         return result.orderId;
       },
       onApprove: async (payload: { orderID: string }) => {
-        await captureOrder({ data: { orderId: payload.orderID } });
-        toast.success("Payment complete", { description: "Your key will be delivered on Discord." });
-        onPaid();
+        const result: any = await captureOrder({ data: { orderId: payload.orderID } });
+        const keys: DeliveredKey[] = Array.isArray(result?.keys) ? result.keys : [];
+        toast.success("Payment complete", {
+          description: keys.length > 0 ? "Your license key is ready." : "Your order has been recorded.",
+        });
+        onPaid(keys);
       },
+
       onError: (error: unknown) => toast.error("Payment failed", { description: String((error as Error)?.message ?? error) }),
     });
     instance.render(container).catch(() => {});
