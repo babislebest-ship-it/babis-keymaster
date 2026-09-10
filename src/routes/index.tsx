@@ -82,7 +82,9 @@ const FIELDS: Record<TableName, FieldSpec[]> = {
     { key: "price_cents", label: "Price in cents", type: "number" },
     { key: "subtitle", label: "Subtitle", type: "text" },
     { key: "perks", label: "Perks (one per line)", type: "list" },
+    { key: "license_duration_minutes", label: "License duration in minutes (empty = lifetime)", type: "number" },
     { key: "cta_label", label: "Button label", type: "text" },
+
     { key: "highlight", label: "Highlighted plan", type: "bool" },
     { key: "sort_order", label: "Position", type: "number" },
     { key: "is_published", label: "Visible on the site", type: "bool" },
