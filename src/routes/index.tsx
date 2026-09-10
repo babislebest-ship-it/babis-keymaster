@@ -463,7 +463,7 @@ function Storefront() {
                 <Button
                   className="mt-5 w-full"
                   variant={plan.highlight ? "default" : "outline"}
-                  onClick={() => addToCart({ kind: "pricing_plans", id: plan.id, title: plan.name, priceCents: plan.price_cents })}
+                  onClick={() => setPlanPicker(plan)}
                 >
                   {plan.cta_label || "Buy now"}
                 </Button>
