@@ -19,7 +19,7 @@ async function assertOwner(db: any, userId: string) {
 
 export const getSiteContent = createServerFn({ method: "GET" }).handler(async () => {
   const db = await admin();
-  const [items, plans, faq, videos, links, tabs, reviews, settings] = await Promise.all([
+  const [items, plans, faq, videos, links, tabs, reviews, settings, scripts] = await Promise.all([
     db.from("shop_items").select("*").order("sort_order"),
     db.from("pricing_plans").select("*").order("sort_order"),
     db.from("site_faq").select("*").order("sort_order"),
@@ -28,6 +28,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     db.from("site_tabs").select("*").order("sort_order"),
     db.from("site_reviews").select("*").order("created_at", { ascending: false }).limit(60),
     db.from("app_settings").select("discord_invite_url").limit(1).maybeSingle(),
+    db.from("scripts").select("id,name,is_active").eq("is_active", true).order("name"),
   ]);
   return {
     shopItems: items.data ?? [],
@@ -37,9 +38,11 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     links: links.data ?? [],
     tabs: tabs.data ?? [],
     reviews: reviews.data ?? [],
+    scripts: (scripts.data ?? []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
     discordInviteUrl: settings.data?.discord_invite_url ?? "",
   };
 });
+
 
 export const getViewerState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
