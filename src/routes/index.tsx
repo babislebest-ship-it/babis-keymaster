@@ -955,3 +955,100 @@ function CartDrawer({
     </>
   );
 }
+
+function PlanScriptDialog({
+  plan,
+  scripts,
+  onClose,
+  onConfirm,
+}: {
+  plan: Row;
+  scripts: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onConfirm: (script: { id: string; name: string }) => void;
+}) {
+  const [selected, setSelected] = useState<string>(scripts[0]?.id ?? "");
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose your script</DialogTitle>
+          <DialogDescription>
+            {plan.name} unlocks one script. Pick the script your license key will be created for.
+          </DialogDescription>
+        </DialogHeader>
+        {scripts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No script is available right now. Please come back later.</p>
+        ) : (
+          <div className="grid max-h-72 gap-2 overflow-y-auto">
+            {scripts.map((script) => (
+              <button
+                key={script.id}
+                type="button"
+                onClick={() => setSelected(script.id)}
+                className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition ${
+                  selected === script.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted"
+                }`}
+              >
+                <span>{script.name}</span>
+                {selected === script.id && <Check className="size-4 text-primary" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <Button
+          className="w-full"
+          disabled={!selected}
+          onClick={() => {
+            const script = scripts.find((s) => s.id === selected);
+            if (script) onConfirm(script);
+          }}
+        >
+          <ShoppingCart className="size-4" /> Add to cart
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KeysDialog({
+  keys,
+  onClose,
+  onCopy,
+}: {
+  keys: DeliveredKey[];
+  onClose: () => void;
+  onCopy: (label: string, value: string) => void;
+}) {
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Your license keys</DialogTitle>
+          <DialogDescription>Keep them safe — paste a key in the loader window to unlock the script.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          {keys.map((entry) => (
+            <div key={entry.key} className="rounded-lg border border-border bg-muted p-3">
+              <div className="text-xs text-muted-foreground">
+                {entry.planName} · {entry.scriptName}
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <code className="text-sm font-semibold">{entry.key}</code>
+                <Button size="sm" variant="outline" onClick={() => onCopy("Key", entry.key)}>
+                  <Copy className="size-3.5" /> Copy
+                </Button>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {entry.expiresAt ? `Valid until ${new Date(entry.expiresAt).toLocaleString()}` : "Lifetime access"}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button className="w-full" onClick={onClose}>
+          Done
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
