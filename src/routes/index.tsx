@@ -163,6 +163,9 @@ function Storefront() {
   const [authOpen, setAuthOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [planPicker, setPlanPicker] = useState<Row | null>(null);
+  const [deliveredKeys, setDeliveredKeys] = useState<DeliveredKey[] | null>(null);
+
   const [editor, setEditor] = useState<{ table: TableName; row: Row } | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
