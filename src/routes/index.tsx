@@ -137,7 +137,17 @@ function embedUrl(url: string) {
   return url;
 }
 
-type CartLine = { kind: "shop_items" | "pricing_plans"; id: string; title: string; priceCents: number; quantity: number };
+type CartLine = {
+  kind: "shop_items" | "pricing_plans";
+  id: string;
+  title: string;
+  priceCents: number;
+  quantity: number;
+  scriptId?: string | null;
+  scriptName?: string | null;
+};
+type DeliveredKey = { key: string; scriptName: string; planName: string; expiresAt?: string | null };
+
 
 function Storefront() {
   const queryClient = useQueryClient();
