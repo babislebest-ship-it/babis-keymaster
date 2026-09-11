@@ -330,6 +330,7 @@ export type Database = {
           perks: string[]
           price_cents: number
           price_label: string
+          requires_script_choice: boolean
           sort_order: number
           subtitle: string
           updated_at: string
@@ -348,6 +349,7 @@ export type Database = {
           perks?: string[]
           price_cents?: number
           price_label?: string
+          requires_script_choice?: boolean
           sort_order?: number
           subtitle?: string
           updated_at?: string
@@ -366,6 +368,7 @@ export type Database = {
           perks?: string[]
           price_cents?: number
           price_label?: string
+          requires_script_choice?: boolean
           sort_order?: number
           subtitle?: string
           updated_at?: string

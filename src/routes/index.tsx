@@ -83,6 +83,7 @@ const FIELDS: Record<TableName, FieldSpec[]> = {
     { key: "subtitle", label: "Subtitle", type: "text" },
     { key: "perks", label: "Perks (one per line)", type: "list" },
     { key: "license_duration_minutes", label: "License duration in minutes (empty = lifetime)", type: "number" },
+    { key: "requires_script_choice", label: "Buyer must choose one script (off = global key for every paid script)", type: "bool" },
     { key: "cta_label", label: "Button label", type: "text" },
 
     { key: "highlight", label: "Highlighted plan", type: "bool" },
@@ -463,7 +464,20 @@ function Storefront() {
                 <Button
                   className="mt-5 w-full"
                   variant={plan.highlight ? "default" : "outline"}
-                  onClick={() => setPlanPicker(plan)}
+                  onClick={() => {
+                    if (plan.requires_script_choice === false) {
+                      addToCart({
+                        kind: "pricing_plans",
+                        id: plan.id,
+                        title: plan.name,
+                        priceCents: plan.price_cents,
+                        scriptId: null,
+                        scriptName: "All paid scripts",
+                      });
+                      return;
+                    }
+                    setPlanPicker(plan);
+                  }}
                 >
                   {plan.cta_label || "Buy now"}
                 </Button>
@@ -906,7 +920,8 @@ function CartDrawer({
           <div className="font-semibold">Your cart</div>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>
         </div>
-        <div className="grid gap-3 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="grid gap-3 p-4">
           {cart.length === 0 && <p className="text-sm text-muted-foreground">Your cart is empty.</p>}
           {cart.map((line) => (
             <div key={lineKey(line)} className="rounded-lg border border-border bg-muted p-3">
@@ -936,7 +951,7 @@ function CartDrawer({
           ))}
         </div>
         {cart.length > 0 && (
-          <div className="mt-auto border-t border-border p-4">
+          <div className="border-t border-border p-4">
             <div className="mb-3 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Total</span>
               <span className="text-lg font-semibold">{money(total)}</span>
@@ -951,6 +966,7 @@ function CartDrawer({
             </p>
           </div>
         )}
+        </div>
       </aside>
     </>
   );
