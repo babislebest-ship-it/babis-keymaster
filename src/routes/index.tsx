@@ -951,7 +951,7 @@ function CartDrawer({
           ))}
         </div>
         {cart.length > 0 && (
-          <div className="mt-auto border-t border-border p-4">
+          <div className="border-t border-border p-4">
             <div className="mb-3 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Total</span>
               <span className="text-lg font-semibold">{money(total)}</span>
@@ -966,6 +966,7 @@ function CartDrawer({
             </p>
           </div>
         )}
+        </div>
       </aside>
     </>
   );
