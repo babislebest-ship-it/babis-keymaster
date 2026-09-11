@@ -334,8 +334,19 @@ export const capturePaypalOrder = createServerFn({ method: "POST" })
     const keys: Array<{ key: string; scriptName: string; planName: string; expiresAt: string | null }> = [];
 
     for (const line of lines) {
-      if (line.kind !== "pricing_plans" || !line.scriptId) continue;
-      const { data: script } = await db.from("scripts").select("id,owner_id,name").eq("id", line.scriptId).maybeSingle();
+      if (line.kind !== "pricing_plans") continue;
+      const global = !line.scriptId && line.allScripts === true;
+      if (!line.scriptId && !global) continue;
+      const { data: script } = global
+        ? await db
+            .from("scripts")
+            .select("id,owner_id,name")
+            .eq("is_active", true)
+            .eq("require_license", true)
+            .order("created_at")
+            .limit(1)
+            .maybeSingle()
+        : await db.from("scripts").select("id,owner_id,name").eq("id", line.scriptId).maybeSingle();
       if (!script) continue;
       for (let i = 0; i < Math.max(1, Number(line.quantity ?? 1)); i += 1) {
         const licenseKey = generateLicenseKey();
@@ -349,11 +360,16 @@ export const capturePaypalOrder = createServerFn({ method: "POST" })
           duration_minutes: duration,
           expires_at: expiresAt,
           max_users: 1,
-          all_scripts: false,
+          all_scripts: global,
           created_by: script.owner_id,
         });
         if (error) continue;
-        keys.push({ key: licenseKey, scriptName: script.name, planName: line.name, expiresAt });
+        keys.push({
+          key: licenseKey,
+          scriptName: global ? "All paid scripts" : script.name,
+          planName: line.name,
+          expiresAt,
+        });
       }
     }
 
