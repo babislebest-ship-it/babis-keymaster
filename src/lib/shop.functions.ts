@@ -389,3 +389,99 @@ export const listMyOrders = createServerFn({ method: "GET" })
     const { data } = await db.from("orders").select("*").order("created_at", { ascending: false }).limit(50);
     return data ?? [];
   });
+
+/* ------------------------------ Licenses ------------------------------ */
+
+export const claimOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ paypalOrderId: z.string().trim().min(4).max(64) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    const { data: order } = await db
+      .from("orders")
+      .select("id,user_id")
+      .eq("paypal_order_id", data.paypalOrderId)
+      .maybeSingle();
+    if (!order) throw new Error("Order not found.");
+    if (order.user_id && order.user_id !== context.userId) throw new Error("This order is already linked to another account.");
+    if (!order.user_id) {
+      const { error } = await db.from("orders").update({ user_id: context.userId }).eq("id", order.id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const listMyLicenses = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await admin();
+    const { data: orders } = await db
+      .from("orders")
+      .select("id,paypal_order_id,status,delivered_keys,amount_cents,currency,created_at")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const rows: Array<{
+      key: string;
+      planName: string;
+      scriptName: string;
+      purchasedAt: string;
+      status: string;
+      expiresAt: string | null;
+      usageCount: number;
+      allScripts: boolean;
+    }> = [];
+
+    for (const order of orders ?? []) {
+      const keys = Array.isArray(order.delivered_keys) ? order.delivered_keys : [];
+      for (const entry of keys as Array<Record<string, any>>) {
+        if (!entry?.key) continue;
+        const { data: license } = await db
+          .from("script_licenses")
+          .select("status,expires_at,usage_count,all_scripts")
+          .eq("license_key", entry.key)
+          .maybeSingle();
+        rows.push({
+          key: String(entry.key),
+          planName: String(entry.planName ?? "Premium"),
+          scriptName: String(entry.scriptName ?? "Script"),
+          purchasedAt: String(order.created_at),
+          status: String(license?.status ?? "unknown"),
+          expiresAt: (license?.expires_at ?? entry.expiresAt ?? null) as string | null,
+          usageCount: Number(license?.usage_count ?? 0),
+          allScripts: Boolean(license?.all_scripts),
+        });
+      }
+    }
+
+    return { licenses: rows, orders: orders ?? [] };
+  });
+
+/* ------------------------------ Uploads ------------------------------- */
+
+export const uploadShopImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        fileName: z.string().trim().min(1).max(120),
+        contentType: z.string().trim().min(3).max(80),
+        dataBase64: z.string().min(10).max(8_000_000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    await assertOwner(db, context.userId);
+    if (!data.contentType.startsWith("image/")) throw new Error("Only image files are allowed.");
+    const extension = (data.fileName.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "png";
+    const objectName = `${crypto.randomUUID()}.${extension}`;
+    const binary = Uint8Array.from(atob(data.dataBase64), (c) => c.charCodeAt(0));
+    const { error } = await db.storage.from("shop-images").upload(objectName, binary, {
+      contentType: data.contentType,
+      upsert: false,
+    });
+    if (error) throw new Error(error.message);
+    return { url: `/api/public/shop-image/${objectName}` };
+  });
