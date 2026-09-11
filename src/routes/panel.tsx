@@ -310,7 +310,7 @@ function Dashboard() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="dashboard-grid min-h-screen">
-        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 bg-sidebar p-4 md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto md:border-r md:border-sidebar-border`}>
+        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 overflow-y-auto overscroll-contain bg-sidebar p-4 md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto md:border-r md:border-sidebar-border`}>
           <div className="mb-5 flex items-center justify-between">
             <div>
               <div className="text-lg font-semibold text-sidebar-foreground">Babis</div>

@@ -28,7 +28,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     db.from("site_tabs").select("*").order("sort_order"),
     db.from("site_reviews").select("*").order("created_at", { ascending: false }).limit(60),
     db.from("app_settings").select("discord_invite_url").limit(1).maybeSingle(),
-    db.from("scripts").select("id,name,is_active").eq("is_active", true).order("name"),
+    db.from("scripts").select("id,name,is_active,require_license").eq("is_active", true).eq("require_license", true).order("name"),
   ]);
   return {
     shopItems: items.data ?? [],
