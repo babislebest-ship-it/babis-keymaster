@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
+import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
 import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -53,6 +54,11 @@ const ApiPublicLoaderPublicIdRoute = ApiPublicLoaderPublicIdRouteImport.update({
   path: '/api/public/loader/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
+  id: '/api/public/shop-image/$name',
+  path: '/api/public/shop-image/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
   id: '/api/public/run/$publicId',
   path: '/api/public/run/$publicId',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
+  '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
+  '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
+  '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/api/public/heartbeat'
     | '/api/public/hub'
     | '/api/public/run/$publicId'
+    | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/public/heartbeat'
     | '/api/public/hub'
     | '/api/public/run/$publicId'
+    | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/api/public/heartbeat'
     | '/api/public/hub'
     | '/api/public/run/$publicId'
+    | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
   ApiPublicHubRoute: typeof ApiPublicHubRoute
   ApiPublicRunPublicIdRoute: typeof ApiPublicRunPublicIdRoute
+  ApiPublicShopImageNameRoute: typeof ApiPublicShopImageNameRoute
   ApiPublicLoaderPublicIdRoute: typeof ApiPublicLoaderPublicIdRoute
 }
 
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLoaderPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/shop-image/$name': {
+      id: '/api/public/shop-image/$name'
+      path: '/api/public/shop-image/$name'
+      fullPath: '/api/public/shop-image/$name'
+      preLoaderRoute: typeof ApiPublicShopImageNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/run/$publicId': {
       id: '/api/public/run/$publicId'
       path: '/api/public/run/$publicId'
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
   ApiPublicHubRoute: ApiPublicHubRoute,
   ApiPublicRunPublicIdRoute: ApiPublicRunPublicIdRoute,
+  ApiPublicShopImageNameRoute: ApiPublicShopImageNameRoute,
   ApiPublicLoaderPublicIdRoute: ApiPublicLoaderPublicIdRoute,
 }
 export const routeTree = rootRouteImport

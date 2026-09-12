@@ -1,0 +1,23 @@
+services:
+  web:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - bun_cache:/root/.bun/install/cache
+    ports:
+      - "3000:8080"
+    env_file:
+      - ./.env.base44-defaults   # public supabase keys (publishable) — app boots without secrets
+      - /run/base44/app.env       # platform secrets (SUPABASE_SERVICE_ROLE_KEY) — LAST, always wins
+    command: sh -c "npm i -g bun >/dev/null 2>&1 && bun install && bun run dev"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  bun_cache:
