@@ -18,6 +18,12 @@ import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/hear
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
 import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
 import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
+import { Route as ApiPublicMobileShopRouteImport } from './routes/api/public/mobile/shop'
+import { Route as ApiPublicMobileScriptsRouteImport } from './routes/api/public/mobile/scripts'
+import { Route as ApiPublicMobileMeRouteImport } from './routes/api/public/mobile/me'
+import { Route as ApiPublicMobileLoginRouteImport } from './routes/api/public/mobile/login'
+import { Route as ApiPublicMobileLicensesRouteImport } from './routes/api/public/mobile/licenses'
+import { Route as ApiPublicMobileBansRouteImport } from './routes/api/public/mobile/bans'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -64,6 +70,36 @@ const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
   path: '/api/public/run/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMobileShopRoute = ApiPublicMobileShopRouteImport.update({
+  id: '/api/public/mobile/shop',
+  path: '/api/public/mobile/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileScriptsRoute = ApiPublicMobileScriptsRouteImport.update({
+  id: '/api/public/mobile/scripts',
+  path: '/api/public/mobile/scripts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileMeRoute = ApiPublicMobileMeRouteImport.update({
+  id: '/api/public/mobile/me',
+  path: '/api/public/mobile/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileLoginRoute = ApiPublicMobileLoginRouteImport.update({
+  id: '/api/public/mobile/login',
+  path: '/api/public/mobile/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileLicensesRoute = ApiPublicMobileLicensesRouteImport.update({
+  id: '/api/public/mobile/licenses',
+  path: '/api/public/mobile/licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileBansRoute = ApiPublicMobileBansRouteImport.update({
+  id: '/api/public/mobile/bans',
+  path: '/api/public/mobile/bans',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,6 +108,12 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
+  '/api/public/mobile/bans': typeof ApiPublicMobileBansRoute
+  '/api/public/mobile/licenses': typeof ApiPublicMobileLicensesRoute
+  '/api/public/mobile/login': typeof ApiPublicMobileLoginRoute
+  '/api/public/mobile/me': typeof ApiPublicMobileMeRoute
+  '/api/public/mobile/scripts': typeof ApiPublicMobileScriptsRoute
+  '/api/public/mobile/shop': typeof ApiPublicMobileShopRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
@@ -83,6 +125,12 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
+  '/api/public/mobile/bans': typeof ApiPublicMobileBansRoute
+  '/api/public/mobile/licenses': typeof ApiPublicMobileLicensesRoute
+  '/api/public/mobile/login': typeof ApiPublicMobileLoginRoute
+  '/api/public/mobile/me': typeof ApiPublicMobileMeRoute
+  '/api/public/mobile/scripts': typeof ApiPublicMobileScriptsRoute
+  '/api/public/mobile/shop': typeof ApiPublicMobileShopRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
@@ -95,6 +143,12 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
   '/api/public/hub': typeof ApiPublicHubRoute
+  '/api/public/mobile/bans': typeof ApiPublicMobileBansRoute
+  '/api/public/mobile/licenses': typeof ApiPublicMobileLicensesRoute
+  '/api/public/mobile/login': typeof ApiPublicMobileLoginRoute
+  '/api/public/mobile/me': typeof ApiPublicMobileMeRoute
+  '/api/public/mobile/scripts': typeof ApiPublicMobileScriptsRoute
+  '/api/public/mobile/shop': typeof ApiPublicMobileShopRoute
   '/api/public/run/$publicId': typeof ApiPublicRunPublicIdRoute
   '/api/public/shop-image/$name': typeof ApiPublicShopImageNameRoute
   '/api/public/loader/$publicId': typeof ApiPublicLoaderPublicIdRoute
@@ -108,6 +162,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
+    | '/api/public/mobile/bans'
+    | '/api/public/mobile/licenses'
+    | '/api/public/mobile/login'
+    | '/api/public/mobile/me'
+    | '/api/public/mobile/scripts'
+    | '/api/public/mobile/shop'
     | '/api/public/run/$publicId'
     | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
@@ -119,6 +179,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
+    | '/api/public/mobile/bans'
+    | '/api/public/mobile/licenses'
+    | '/api/public/mobile/login'
+    | '/api/public/mobile/me'
+    | '/api/public/mobile/scripts'
+    | '/api/public/mobile/shop'
     | '/api/public/run/$publicId'
     | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
@@ -130,6 +196,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/public/heartbeat'
     | '/api/public/hub'
+    | '/api/public/mobile/bans'
+    | '/api/public/mobile/licenses'
+    | '/api/public/mobile/login'
+    | '/api/public/mobile/me'
+    | '/api/public/mobile/scripts'
+    | '/api/public/mobile/shop'
     | '/api/public/run/$publicId'
     | '/api/public/shop-image/$name'
     | '/api/public/loader/$publicId'
@@ -142,6 +214,12 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
   ApiPublicHubRoute: typeof ApiPublicHubRoute
+  ApiPublicMobileBansRoute: typeof ApiPublicMobileBansRoute
+  ApiPublicMobileLicensesRoute: typeof ApiPublicMobileLicensesRoute
+  ApiPublicMobileLoginRoute: typeof ApiPublicMobileLoginRoute
+  ApiPublicMobileMeRoute: typeof ApiPublicMobileMeRoute
+  ApiPublicMobileScriptsRoute: typeof ApiPublicMobileScriptsRoute
+  ApiPublicMobileShopRoute: typeof ApiPublicMobileShopRoute
   ApiPublicRunPublicIdRoute: typeof ApiPublicRunPublicIdRoute
   ApiPublicShopImageNameRoute: typeof ApiPublicShopImageNameRoute
   ApiPublicLoaderPublicIdRoute: typeof ApiPublicLoaderPublicIdRoute
@@ -212,6 +290,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRunPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mobile/shop': {
+      id: '/api/public/mobile/shop'
+      path: '/api/public/mobile/shop'
+      fullPath: '/api/public/mobile/shop'
+      preLoaderRoute: typeof ApiPublicMobileShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/scripts': {
+      id: '/api/public/mobile/scripts'
+      path: '/api/public/mobile/scripts'
+      fullPath: '/api/public/mobile/scripts'
+      preLoaderRoute: typeof ApiPublicMobileScriptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/me': {
+      id: '/api/public/mobile/me'
+      path: '/api/public/mobile/me'
+      fullPath: '/api/public/mobile/me'
+      preLoaderRoute: typeof ApiPublicMobileMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/login': {
+      id: '/api/public/mobile/login'
+      path: '/api/public/mobile/login'
+      fullPath: '/api/public/mobile/login'
+      preLoaderRoute: typeof ApiPublicMobileLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/licenses': {
+      id: '/api/public/mobile/licenses'
+      path: '/api/public/mobile/licenses'
+      fullPath: '/api/public/mobile/licenses'
+      preLoaderRoute: typeof ApiPublicMobileLicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/bans': {
+      id: '/api/public/mobile/bans'
+      path: '/api/public/mobile/bans'
+      fullPath: '/api/public/mobile/bans'
+      preLoaderRoute: typeof ApiPublicMobileBansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -222,6 +342,12 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
   ApiPublicHubRoute: ApiPublicHubRoute,
+  ApiPublicMobileBansRoute: ApiPublicMobileBansRoute,
+  ApiPublicMobileLicensesRoute: ApiPublicMobileLicensesRoute,
+  ApiPublicMobileLoginRoute: ApiPublicMobileLoginRoute,
+  ApiPublicMobileMeRoute: ApiPublicMobileMeRoute,
+  ApiPublicMobileScriptsRoute: ApiPublicMobileScriptsRoute,
+  ApiPublicMobileShopRoute: ApiPublicMobileShopRoute,
   ApiPublicRunPublicIdRoute: ApiPublicRunPublicIdRoute,
   ApiPublicShopImageNameRoute: ApiPublicShopImageNameRoute,
   ApiPublicLoaderPublicIdRoute: ApiPublicLoaderPublicIdRoute,
