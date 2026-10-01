@@ -9,24 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as PanelRouteImport } from './routes/panel'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PanelRouteImport } from './routes/panel'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
+import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
-import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
 import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
+import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PanelRoute = PanelRouteImport.update({
-  id: '/panel',
-  path: '/panel',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -34,14 +29,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PanelRoute = PanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
-  id: '/api/public/hub',
-  path: '/api/public/hub',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHeartbeatRoute = ApiPublicHeartbeatRouteImport.update({
@@ -49,19 +44,24 @@ const ApiPublicHeartbeatRoute = ApiPublicHeartbeatRouteImport.update({
   path: '/api/public/heartbeat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
+  id: '/api/public/hub',
+  path: '/api/public/hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLoaderPublicIdRoute = ApiPublicLoaderPublicIdRouteImport.update({
   id: '/api/public/loader/$publicId',
   path: '/api/public/loader/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
-  id: '/api/public/shop-image/$name',
-  path: '/api/public/shop-image/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
   id: '/api/public/run/$publicId',
   path: '/api/public/run/$publicId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
+  id: '/api/public/shop-image/$name',
+  path: '/api/public/shop-image/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -149,18 +149,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/panel': {
-      id: '/panel'
-      path: '/panel'
-      fullPath: '/panel'
-      preLoaderRoute: typeof PanelRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -170,18 +163,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/panel': {
+      id: '/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hub': {
-      id: '/api/public/hub'
-      path: '/api/public/hub'
-      fullPath: '/api/public/hub'
-      preLoaderRoute: typeof ApiPublicHubRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/heartbeat': {
@@ -191,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHeartbeatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hub': {
+      id: '/api/public/hub'
+      path: '/api/public/hub'
+      fullPath: '/api/public/hub'
+      preLoaderRoute: typeof ApiPublicHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/loader/$publicId': {
       id: '/api/public/loader/$publicId'
       path: '/api/public/loader/$publicId'
@@ -198,18 +198,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLoaderPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/shop-image/$name': {
-      id: '/api/public/shop-image/$name'
-      path: '/api/public/shop-image/$name'
-      fullPath: '/api/public/shop-image/$name'
-      preLoaderRoute: typeof ApiPublicShopImageNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/run/$publicId': {
       id: '/api/public/run/$publicId'
       path: '/api/public/run/$publicId'
       fullPath: '/api/public/run/$publicId'
       preLoaderRoute: typeof ApiPublicRunPublicIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/shop-image/$name': {
+      id: '/api/public/shop-image/$name'
+      path: '/api/public/shop-image/$name'
+      fullPath: '/api/public/shop-image/$name'
+      preLoaderRoute: typeof ApiPublicShopImageNameRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
