@@ -79,21 +79,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Babis Script License Portal" },
+      { title: "Babis Hub" },
       {
         name: "description",
-        content: "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
+        content:
+          "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
       },
       { name: "author", content: "Babis" },
-      { property: "og:title", content: "Babis Script License Portal" },
+      { property: "og:title", content: "Babis Hub" },
       {
         property: "og:description",
-        content: "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
+        content:
+          "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Babis Script License Portal" },
-      { name: "twitter:description", content: "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs." },
+      { name: "twitter:title", content: "Babis Hub" },
+      {
+        name: "twitter:description",
+        content:
+          "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
+      },
     ],
     links: [
       {
@@ -125,6 +131,27 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    let disposed = false;
+    let removeBackListener: (() => void) | undefined;
+    void import("@capacitor/core")
+      .then(async ({ Capacitor }) => {
+        if (!Capacitor.isNativePlatform()) return;
+        const { App } = await import("@capacitor/app");
+        const listener = await App.addListener("backButton", ({ canGoBack }) => {
+          if (canGoBack && window.history.length > 1) window.history.back();
+          else App.exitApp();
+        });
+        if (disposed) void listener.remove();
+        else removeBackListener = () => void listener.remove();
+      })
+      .catch((error: unknown) => console.error("Native back-button setup failed", error));
+    return () => {
+      disposed = true;
+      removeBackListener?.();
+    };
+  }, []);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {

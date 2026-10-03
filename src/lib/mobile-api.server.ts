@@ -62,3 +62,85 @@ export function extractBearer(request: Request): string | null {
   const token = match[1].trim();
   return token.length > 20 ? token : null;
 }
+
+const REMOTE_MOBILE_PATHS = [
+  "/api/public/mobile/login",
+  "/api/public/mobile/me",
+  "/api/public/mobile/shop",
+] as const;
+
+export type RemoteMobilePath = (typeof REMOTE_MOBILE_PATHS)[number];
+
+/** Makes a server-only request to the configured Keymaster API. */
+export async function fetchKeymasterApi(
+  request: Request,
+  path: RemoteMobilePath,
+  init: { method: "GET" | "POST"; body?: string; forwardAuthorization?: boolean },
+): Promise<Response> {
+  const apiKey = process.env["KEYMASTER_API_KEY"];
+  if (!apiKey) return json({ error: "The Keymaster API is not configured on this server." }, 503);
+
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(process.env["KEYMASTER_API_BASE_URL"] || "https://babis-keymaster.lovable.app");
+  } catch {
+    return json({ error: "The Keymaster API base URL is invalid." }, 503);
+  }
+  if (
+    baseUrl.protocol !== "https:" ||
+    baseUrl.username ||
+    baseUrl.password ||
+    baseUrl.search ||
+    baseUrl.hash ||
+    (baseUrl.pathname !== "/" && baseUrl.pathname !== "")
+  ) {
+    return json({ error: "The Keymaster API base URL must be an HTTPS origin." }, 503);
+  }
+  if (new URL(request.url).origin === baseUrl.origin) {
+    return json(
+      { error: "The Keymaster API proxy and upstream must use different origins." },
+      503,
+    );
+  }
+
+  const headers = new Headers({ Accept: "application/json", "x-api-key": apiKey });
+  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.forwardAuthorization) {
+    const authorization = request.headers.get("Authorization");
+    if (!authorization || !/^Bearer\s+\S+$/i.test(authorization)) {
+      return json({ error: "A bearer access token is required." }, 401);
+    }
+    headers.set("Authorization", authorization);
+  }
+
+  try {
+    const response = await fetch(new URL(path, baseUrl), {
+      method: init.method,
+      headers,
+      body: init.body,
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      const status = response.status >= 500 ? 502 : response.status;
+      return json(
+        {
+          error:
+            response.status >= 500
+              ? "The Keymaster API is temporarily unavailable."
+              : "The Keymaster API rejected the request.",
+        },
+        status,
+      );
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return json({ error: "The Keymaster API returned an invalid response." }, 502);
+    }
+    return response;
+  } catch {
+    return json({ error: "The Keymaster API could not be reached." }, 502);
+  }
+}

@@ -20,7 +20,12 @@ async function assertOwner(db: any, userId: string) {
 export const getSiteContent = createServerFn({ method: "GET" }).handler(async () => {
   const db = await admin();
   const [items, plans, faq, videos, links, tabs, reviews, settings, scripts] = await Promise.all([
-    db.from("shop_items").select("*").order("sort_order"),
+    db
+      .from("shop_items")
+      .select(
+        "id,title,description,features,video_url,image_url,price_label,price_cents,currency,badge,sort_order,is_published,created_at,updated_at",
+      )
+      .order("sort_order"),
     db.from("pricing_plans").select("*").order("sort_order"),
     db.from("site_faq").select("*").order("sort_order"),
     db.from("site_videos").select("*").order("sort_order"),

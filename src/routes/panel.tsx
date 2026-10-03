@@ -22,6 +22,7 @@ import {
   Users,
   MessageSquare,
   ExternalLink,
+  Home,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -43,10 +44,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/panel")({
   head: () => ({
     meta: [
-      { title: "Owner Panel | Babis Scripts" },
-      { name: "description", content: "Manage Babis scripts, licenses, live players and bans." },
-      { property: "og:title", content: "Owner Panel | Babis Scripts" },
-      { property: "og:description", content: "Manage Babis scripts, licenses, live players and bans." },
+      { title: "Owner Panel | Babis Hub" },
+      { name: "description", content: "Manage scripts and account tools from Babis Hub." },
+      { property: "og:title", content: "Owner Panel | Babis Hub" },
+      { property: "og:description", content: "Manage scripts and account tools from Babis Hub." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -85,7 +86,7 @@ function LoadingShell() {
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Shield className="size-6" />
         </div>
-        <p className="text-sm text-muted-foreground">Loading Babis Premium…</p>
+        <p className="text-sm text-muted-foreground">Loading Babis Hub…</p>
       </div>
     </div>
   );
@@ -98,7 +99,7 @@ function Landing() {
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
             <Shield className="size-4 text-primary" />
-            Babis Premium
+            Babis Hub
           </div>
           <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl lg:text-6xl">
             Script access control for Roblox experiences.
@@ -310,17 +311,31 @@ function Dashboard() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="dashboard-grid min-h-screen">
-        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 overflow-y-auto overscroll-contain bg-sidebar p-4 md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto md:border-r md:border-sidebar-border`}>
-          <div className="mb-5 flex items-center justify-between">
+        <aside className={`dashboard-sidebar ${menuOpen ? "fixed" : "hidden"} inset-0 z-40 overflow-y-auto overscroll-contain p-4 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto lg:border-r lg:border-sidebar-border`}>
+          <div className="dashboard-sidebar-brand mb-5 flex items-center justify-between">
             <div>
-              <div className="text-lg font-semibold text-sidebar-foreground">Babis</div>
-              <div className="text-xs text-muted-foreground">Premium control panel</div>
+              <div className="flex items-center gap-2.5">
+                <img src="/app-icon.png" alt="" className="size-9 rounded-lg" />
+                <div>
+                  <div className="text-sm font-semibold text-sidebar-foreground">Babis Hub</div>
+                  <div className="text-xs text-sidebar-foreground/60">Management workspace</div>
+                </div>
+              </div>
             </div>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(false)}><X /></Button>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X /></Button>
           </div>
+          <Button asChild variant="outline" className="mb-4 w-full justify-start" onClick={() => setMenuOpen(false)}>
+            <Link to="/">
+              <Home className="size-4" />
+              Back to Babis Hub
+            </Link>
+          </Button>
           <Button className="mb-4 w-full" onClick={() => { setScriptForm(emptyScript); setMenuOpen(false); }}>
             <Plus /> New script
           </Button>
+          <div className="mb-2 px-2 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/50">
+            Script library
+          </div>
           <div className="space-y-2">
             {scripts.map((script) => (
               <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>
@@ -345,10 +360,10 @@ function Dashboard() {
           </div>
         </aside>
 
-        <section className="min-w-0 px-4 py-4 sm:px-6 lg:px-8">
+        <section className="min-w-0 px-3 py-4 sm:px-6 lg:px-8">
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <Button variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(true)}><Menu /></Button>
+              <Button variant="outline" size="icon" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu /></Button>
               <div>
                 <h1 className="text-2xl font-semibold sm:text-3xl">Script Manager</h1>
                 <p className="text-sm text-muted-foreground">Signed in as {data?.profile?.username ?? "staff"}</p>
@@ -358,13 +373,13 @@ function Dashboard() {
           </header>
 
           <Tabs defaultValue="scripts" className="min-w-0">
-            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
-              <TabsTrigger value="scripts"><Plus className="mr-2 size-4" />Add</TabsTrigger>
-              <TabsTrigger value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
-              <TabsTrigger value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
-              <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
-              <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
-              <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
+            <TabsList className="dashboard-tabs-list mb-4 flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto bg-muted p-1">
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="scripts"><Plus className="mr-2 size-4" />Add</TabsTrigger>
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="licenses"><KeyRound className="mr-2 size-4" />License</TabsTrigger>
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="players"><Users className="mr-2 size-4" />Live</TabsTrigger>
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
+              <TabsTrigger className="shrink-0 whitespace-nowrap" value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
             </TabsList>
 
             <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
