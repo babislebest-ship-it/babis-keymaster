@@ -1,35 +1,63 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { extractBearer, getAuthedUser, json, verifyApiKey } from "@/lib/mobile-api.server";
+import { fetchKeymasterApi, json } from "@/lib/mobile-api.server";
 
 export const Route = createFileRoute("/api/public/mobile/me")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const denied = await verifyApiKey(request);
-        if (denied) return denied;
+        const upstream = await fetchKeymasterApi(request, "/api/public/mobile/me", {
+          method: "GET",
+          forwardAuthorization: true,
+        });
+        let result: Record<string, unknown>;
+        try {
+          result = (await upstream.json()) as Record<string, unknown>;
+        } catch {
+          return json({ error: "The Keymaster API returned an invalid response." }, 502);
+        }
+        if (!upstream.ok) {
+          const error =
+            typeof result.error === "string" ? result.error : "Account data is unavailable.";
+          return json({ error }, upstream.status);
+        }
 
-        const token = extractBearer(request);
-        if (!token) return json({ error: "Missing access token." }, 401);
-        const user = await getAuthedUser(token);
-        if (!user) return json({ error: "Session expired. Sign in again." }, 401);
-
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const db = supabaseAdmin as any;
-
-        const [profileRes, ordersRes] = await Promise.all([
-          db.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-          db
-            .from("orders")
-            .select("id, status, items, amount_cents, currency, delivered_keys, created_at")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(50),
-        ]);
+        const user =
+          result.user && typeof result.user === "object"
+            ? (result.user as Record<string, unknown>)
+            : {};
+        const profile =
+          result.profile && typeof result.profile === "object"
+            ? (result.profile as Record<string, unknown>)
+            : null;
+        const orders = Array.isArray(result.orders)
+          ? result.orders.map((value) => {
+              const order =
+                value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+              return {
+                id: typeof order.id === "string" ? order.id : "",
+                status: typeof order.status === "string" ? order.status : "unknown",
+                amount_cents: typeof order.amount_cents === "number" ? order.amount_cents : 0,
+                currency: typeof order.currency === "string" ? order.currency : "EUR",
+                created_at: typeof order.created_at === "string" ? order.created_at : "",
+              };
+            })
+          : [];
 
         return json({
-          user: { id: user.id, email: user.email },
-          profile: profileRes.data ?? null,
-          orders: ordersRes.data ?? [],
+          user: {
+            id: typeof user.id === "string" ? user.id : null,
+            email: typeof user.email === "string" ? user.email : null,
+          },
+          profile: profile
+            ? {
+                id: typeof profile.id === "string" ? profile.id : null,
+                username: typeof profile.username === "string" ? profile.username : "",
+                display_name:
+                  typeof profile.display_name === "string" ? profile.display_name : null,
+                created_at: typeof profile.created_at === "string" ? profile.created_at : null,
+              }
+            : null,
+          orders,
         });
       },
     },

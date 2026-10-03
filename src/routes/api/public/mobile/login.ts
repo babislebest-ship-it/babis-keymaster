@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { verifyApiKey, getPublishable, json } from "@/lib/mobile-api.server";
+import { fetchKeymasterApi, json } from "@/lib/mobile-api.server";
 
 export const Route = createFileRoute("/api/public/mobile/login")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await verifyApiKey(request);
-        if (denied) return denied;
-
         let raw: unknown = null;
         try {
           raw = await request.json();
@@ -22,20 +19,44 @@ export const Route = createFileRoute("/api/public/mobile/login")({
           return json({ error: "Email and password are required." }, 400);
         }
 
-        const db = getPublishable();
-        const { data, error } = await db.auth.signInWithPassword({
-          email: parsed.data.email,
-          password: parsed.data.password,
-        });
-        if (error || !data?.session || !data?.user) {
-          return json({ error: "Invalid email or password." }, 401);
+        const upstream = await fetchKeymasterApi(
+          request,
+          "/api/public/mobile/login",
+          {
+            method: "POST",
+            body: JSON.stringify(parsed.data),
+          },
+        );
+        let result: Record<string, unknown>;
+        try {
+          result = (await upstream.json()) as Record<string, unknown>;
+        } catch {
+          return json({ error: "The Keymaster API returned an invalid response." }, 502);
+        }
+        if (!upstream.ok) {
+          const error =
+            typeof result.error === "string" ? result.error : "Sign in could not be completed.";
+          return json({ error }, upstream.status);
         }
 
+        const user =
+          result.user && typeof result.user === "object"
+            ? (result.user as Record<string, unknown>)
+            : {};
+        if (
+          typeof result.access_token !== "string" ||
+          typeof result.refresh_token !== "string"
+        ) {
+          return json({ error: "The Keymaster API returned an invalid sign-in response." }, 502);
+        }
         return json({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at,
-          user: { id: data.user.id, email: data.user.email },
+          access_token: result.access_token,
+          refresh_token: result.refresh_token,
+          expires_at: typeof result.expires_at === "number" ? result.expires_at : null,
+          user: {
+            id: typeof user.id === "string" ? user.id : null,
+            email: typeof user.email === "string" ? user.email : parsed.data.email,
+          },
         });
       },
     },

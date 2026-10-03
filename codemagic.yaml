@@ -1,0 +1,67 @@
+workflows:
+  ios-unsigned-archive:
+    name: iOS unsigned Xcode archive (signing required to install)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      node: "22"
+      xcode: "26.0"
+    scripts:
+      - name: Install JavaScript dependencies
+        script: npm ci
+      - name: Build web app and sync Capacitor iOS
+        script: |
+          npm run build
+          npx cap sync ios
+      - name: Archive without code signing
+        script: |
+          set -euo pipefail
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/BabisHub-unsigned.xcarchive"
+          ARCHIVE_ZIP="$CM_BUILD_DIR/build/ios/BabisHub-unsigned.xcarchive.zip"
+          APP_PATH="$ARCHIVE_PATH/Products/Applications/App.app"
+
+          mkdir -p "$CM_BUILD_DIR/build/ios"
+          test ! -e "$ARCHIVE_PATH"
+          test ! -e "$ARCHIVE_ZIP"
+          xcodebuild \
+            -project "$CM_BUILD_DIR/ios/App/App.xcodeproj" \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE_PATH" \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+          test -d "$APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$ARCHIVE_PATH" "$ARCHIVE_ZIP"
+          test -s "$ARCHIVE_ZIP"
+    artifacts:
+      - build/ios/BabisHub-unsigned.xcarchive.zip
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-ipa:
+    name: iOS IPA (Codemagic)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      node: "22"
+      xcode: "26.0"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.babis.keymaster
+    scripts:
+      - name: Install JavaScript dependencies
+        script: npm ci
+      - name: Build web app and sync Capacitor iOS
+        script: |
+          npm run build
+          npx cap sync ios
+      - name: Apply iOS signing profiles
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/ios/App/App.xcodeproj" \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
