@@ -54,28 +54,17 @@ KEYMASTER_API_KEY=<fresh rotated API key>
 The base URL must be an HTTPS origin and must differ from the app/proxy's own origin (otherwise requests would recurse and are rejected). When deploying the proxy, keep it on a separate hostname from the existing API and point `KEYMASTER_API_BASE_URL` at that API. Point `KEYMASTER_DESKTOP_URL` / `CAPACITOR_SERVER_URL` at the proxy deployment when building desktop/mobile wrappers. The proxy forwards only login, me, and shop requests; it does not implement profile writes, separate orders routes, scripts, licenses, bans, executor access, or player tracking.
 
 The API key previously pasted into chat is compromised: revoke/rotate it with its issuer before deployment. Do not reuse it or put any API key in source, `VITE_*`, browser storage, logs, a desktop bundle, or a mobile package. Only configure a fresh key as the server-only `KEYMASTER_API_KEY` secret.
-## Build an iOS IPA in the cloud
+## Build iOS with Codemagic
 
-This repository includes two on-demand workflows in `codemagic.yaml` for Codemagic's macOS build machines. Capacitor iOS builds require macOS and Xcode; this Windows worktree cannot build an iOS app locally. Both workflows run `npm ci`, build the web app, sync the Capacitor iOS project, and use Node.js 22 and Xcode 26.
+`codemagic.yaml` defines two on-demand macOS workflows. Both install from `package-lock.json`, build the web app, sync the checked-in Capacitor iOS project, and use Node.js 22 and Xcode 26. The app bundle identifier is `com.babis.keymaster`, its display name is **Babis Hub**, and the shared BW icon is included in `ios/`.
 
-### Unsigned IPA (no paid Apple Developer account)
+1. Connect this GitHub repository in Codemagic and select the `babis-hub-ios-codemagic` branch.
+2. Run `ios-unsigned-archive` to compile an unsigned Xcode archive. It produces `BabisHub-unsigned.xcarchive.zip`; this is a build artifact for further signing, **not an installable IPA**. No Apple signing credentials are needed for this workflow.
+3. To produce an installable IPA for TestFlight, the App Store, or managed distribution, configure Codemagic code signing for `com.babis.keymaster` and run `ios-ipa`. This workflow expects an Apple Distribution certificate and matching App Store provisioning profile, provided through Codemagic's code-signing settings or its Apple Developer Portal integration. App Store/TestFlight release also requires an Apple Developer team and an App Store Connect app record. The workflow builds the IPA but does not submit it.
 
-The `iOS unsigned IPA (no paid developer account)` workflow archives the app with code signing disabled and packages the `.app` into `build/ios/babis.ipa`. This is an unsigned package for experimentation—not an installable, App Store, or TestFlight-ready IPA. It cannot be installed on an iPhone as-is, and Codemagic cannot turn it into a distributable app without signing.
+Never commit Apple API `.p8` keys, distribution certificates/private keys, provisioning profiles, or passwords. Store signing material only in Codemagic's secure integrations. Before starting a build, configure `CAPACITOR_SERVER_URL` as a Codemagic environment variable if the app should load a deployment other than the default hosted site. The native wrapper loads hosted server routes and requires network access; API proxy credentials belong only on the server deployment, never in Codemagic build variables or the app bundle.
 
-For personal-device testing without a paid membership, use a Mac with Xcode and sign the app using an Apple ID's free Personal Team, then install it with Xcode or a compatible sideloading tool such as AltStore/SideStore. Free provisioning is intended for personal testing, expires quickly (commonly after seven days), and has device/app limits; the app must be re-signed periodically. Availability and limits are controlled by Apple and may change. This is separate from the unsigned Codemagic workflow, which does not request or store Apple credentials.
-
-For App Store, TestFlight, or normal managed distribution, use the signed workflow below; those routes require Apple Developer Program membership and valid signing assets.
-
-Before a cloud build:
-
-1. Commit and push this branch, including `ios/`, `codemagic.yaml`, and the lockfile. Codemagic reads configuration from the connected Git repository; uncommitted local files are not available to its build machines.
-2. In Codemagic, add/connect this GitHub repository and select the `iOS IPA (Codemagic)` workflow. Configure the iOS code-signing identity for bundle ID `com.babis.keymaster`. The workflow targets App Store/TestFlight distribution, so use a matching Apple Distribution certificate and App Store provisioning profile. You can upload those signing files to Codemagic or let it manage/fetch them through the Apple Developer Portal integration.
-3. App Store signing requires an Apple Developer team and the registered app identifier. If using Codemagic's automatic certificate/profile management or App Store Connect publishing, create an App Store Connect API key with suitable App Manager access and add it in Codemagic's Team integrations. An API key is not needed for a build when you manually upload the matching signing certificate and profile. Create an App Store Connect app record before TestFlight/App Store submission.
-4. Start the `iOS IPA (Codemagic)` workflow manually. Download the `.ipa` artifact from the completed build; upload it to TestFlight/App Store Connect or distribute it to devices using the matching signing method.
-
-Never commit Apple API `.p8` keys, distribution certificates/private keys, provisioning profiles, or their passwords. Store/manage signing assets only in Codemagic's code-signing integrations. An IPA is not generated by the local `cap sync`; the signed workflow produces it from an Xcode archive/export on the macOS runner. The workflow does not automatically publish the app. The unsigned workflow needs no signing credentials but its IPA is only a package for further signing/testing workflows, not a directly installable deliverable.
-
-The iOS wrapper currently points to the HTTPS URL set by `CAPACITOR_SERVER_URL` (default: the Lovable site), because authentication and dashboard features depend on hosted server routes. Confirm that this backend is the intended production environment and reachable before releasing the IPA.
+An IPA cannot be compiled on Windows: iOS compilation requires macOS and Xcode. Local `npx cap sync ios` refreshes the Xcode project but does not compile or sign it.
 
 References: [Capacitor iOS requirements](https://capacitorjs.com/docs/getting-started/environment-setup#ios-requirements), [Capacitor iOS workflow](https://capacitorjs.com/docs/ios), [Codemagic native iOS builds and signing](https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app/), and [Codemagic YAML configuration](https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/).
 

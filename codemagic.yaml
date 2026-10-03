@@ -1,6 +1,6 @@
 workflows:
-  ios-unsigned-ipa:
-    name: iOS unsigned IPA (no paid developer account)
+  ios-unsigned-archive:
+    name: iOS unsigned Xcode archive (signing required to install)
     instance_type: mac_mini_m2
     max_build_duration: 120
     environment:
@@ -13,17 +13,16 @@ workflows:
         script: |
           npm run build
           npx cap sync ios
-      - name: Archive without code signing and package IPA
+      - name: Archive without code signing
         script: |
           set -euo pipefail
-          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/babis-unsigned.xcarchive"
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/BabisHub-unsigned.xcarchive"
+          ARCHIVE_ZIP="$CM_BUILD_DIR/build/ios/BabisHub-unsigned.xcarchive.zip"
           APP_PATH="$ARCHIVE_PATH/Products/Applications/App.app"
-          IPA_PATH="$CM_BUILD_DIR/build/ios/babis.ipa"
-          PACKAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/keymaster-ipa.XXXXXX")"
 
           mkdir -p "$CM_BUILD_DIR/build/ios"
           test ! -e "$ARCHIVE_PATH"
-          test ! -e "$IPA_PATH"
+          test ! -e "$ARCHIVE_ZIP"
           xcodebuild \
             -project "$CM_BUILD_DIR/ios/App/App.xcodeproj" \
             -scheme App \
@@ -33,12 +32,10 @@ workflows:
             CODE_SIGNING_ALLOWED=NO \
             archive
           test -d "$APP_PATH"
-          mkdir "$PACKAGE_DIR/Payload"
-          ditto "$APP_PATH" "$PACKAGE_DIR/Payload/App.app"
-          (cd "$PACKAGE_DIR" && /usr/bin/zip -qry "$IPA_PATH" Payload)
-          test -s "$IPA_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$ARCHIVE_PATH" "$ARCHIVE_ZIP"
+          test -s "$ARCHIVE_ZIP"
     artifacts:
-      - build/ios/babis.ipa
+      - build/ios/BabisHub-unsigned.xcarchive.zip
       - /tmp/xcodebuild_logs/*.log
 
   ios-ipa:
