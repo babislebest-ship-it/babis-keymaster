@@ -55,7 +55,7 @@ function AuthPage() {
       <section className="app-panel w-full max-w-md p-5 sm:p-6">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 flex size-12 items-center justify-center bg-primary text-primary-foreground"><Shield /></div>
-          <h1 className="text-2xl font-semibold">Babis Premium</h1>
+          <h1 className="text-2xl font-semibold">Babis Hub</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sign in with your staff username and password.</p>
         </div>
         <form className="grid gap-3" onSubmit={submit}>

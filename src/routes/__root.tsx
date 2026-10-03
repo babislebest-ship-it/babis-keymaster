@@ -79,14 +79,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Babis Script License Portal" },
+      { title: "Babis Hub" },
       {
         name: "description",
         content:
           "Secure dashboard for Roblox experience scripts, licenses, bans, and live usage logs.",
       },
       { name: "author", content: "Babis" },
-      { property: "og:title", content: "Babis Script License Portal" },
+      { property: "og:title", content: "Babis Hub" },
       {
         property: "og:description",
         content:
@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Babis Script License Portal" },
+      { name: "twitter:title", content: "Babis Hub" },
       {
         name: "twitter:description",
         content:

@@ -22,10 +22,38 @@ Set-Location android
 
 The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. The Capacitor iOS project is under `ios\App\App.xcodeproj`; open it with Xcode on macOS or run `npx cap open ios`. Re-run `npm run build` and `npx cap sync` after web changes. Android's system back button is wired to browser history (or exits at the root), and Capacitor's splash screen is configured in `capacitor.config.ts`.
 
+The shared BW app icon is sourced from `assets\app-icon.png` and applied to Android, the iOS asset catalog, and the Windows installer. The desktop installer is named `release\Babis-Hub-Setup-1.0.0.exe`; the Android package is `com.babis.keymaster` with the display name Babis Hub. The iOS project is under `ios\App\App.xcodeproj` and must be opened/built on macOS with Xcode. An IPA cannot be compiled on Windows.
+
 Capacitor uses the TanStack Start public build output in `.output/public`; verify that the build emits `index.html` there before native sync. The current application also relies on hosted server routes and Supabase, so native builds must be tested against the configured backend before release.
 
 The native wrapper loads the hosted application URL because TanStack Start server routes are required for sign-in and dashboard features. `capacitor.config.ts` defaults to the Lovable deployment; set `CAPACITOR_SERVER_URL` to your HTTPS deployment origin before `npx cap sync` when building another environment. This wrapper needs network access and is not an offline/static app.
 
+## Windows desktop app
+
+The Electron desktop wrapper loads the hosted application (by default, the Lovable deployment); it does not bundle backend credentials or a private API key. Install dependencies, then run `npm run desktop` for development or `npm run desktop:win` on Windows to create an unsigned NSIS installer under `release/`. The packaged app requires network access and a working hosted backend.
+
+Set the machine-level `KEYMASTER_DESKTOP_URL` environment variable to another HTTPS deployment before launching the app. HTTP is accepted only for `localhost` development. The Electron renderer has context isolation enabled, Node integration disabled, and external HTTPS links open in the system browser.
+
+## Remote account and shop API
+
+The app proxies only the supported account and public shop routes to the configured Keymaster API. The proxy adds the API key on the server and never forwards it to the browser or native/desktop packages.
+
+| Method | App route | Upstream route | Access |
+| --- | --- | --- | --- |
+| `POST` | `/api/public/mobile/login` | `/api/public/mobile/login` | Sign in with email and password |
+| `GET` | `/api/public/mobile/me` | `/api/public/mobile/me` | Supabase bearer access token; returns the user's profile and order summaries |
+| `GET` | `/api/public/mobile/shop` | `/api/public/mobile/shop` | Published shop content; loader commands and unrecognized fields are stripped |
+
+Set these **server-side deployment** environment variables on the host running this app/proxy:
+
+```text
+KEYMASTER_API_BASE_URL=https://babis-keymaster.lovable.app
+KEYMASTER_API_KEY=<fresh rotated API key>
+```
+
+The base URL must be an HTTPS origin and must differ from the app/proxy's own origin (otherwise requests would recurse and are rejected). When deploying the proxy, keep it on a separate hostname from the existing API and point `KEYMASTER_API_BASE_URL` at that API. Point `KEYMASTER_DESKTOP_URL` / `CAPACITOR_SERVER_URL` at the proxy deployment when building desktop/mobile wrappers. The proxy forwards only login, me, and shop requests; it does not implement profile writes, separate orders routes, scripts, licenses, bans, executor access, or player tracking.
+
+The API key previously pasted into chat is compromised: revoke/rotate it with its issuer before deployment. Do not reuse it or put any API key in source, `VITE_*`, browser storage, logs, a desktop bundle, or a mobile package. Only configure a fresh key as the server-only `KEYMASTER_API_KEY` secret.
 ## Build an iOS IPA in the cloud
 
 This repository includes two on-demand workflows in `codemagic.yaml` for Codemagic's macOS build machines. Capacitor iOS builds require macOS and Xcode; this Windows worktree cannot build an iOS app locally. Both workflows run `npm ci`, build the web app, sync the Capacitor iOS project, and use Node.js 22 and Xcode 26.

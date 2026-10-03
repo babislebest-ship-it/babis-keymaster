@@ -22,6 +22,7 @@ import {
   Users,
   MessageSquare,
   ExternalLink,
+  Home,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -43,10 +44,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/panel")({
   head: () => ({
     meta: [
-      { title: "Owner Panel | Babis Scripts" },
-      { name: "description", content: "Manage Babis scripts, licenses, live players and bans." },
-      { property: "og:title", content: "Owner Panel | Babis Scripts" },
-      { property: "og:description", content: "Manage Babis scripts, licenses, live players and bans." },
+      { title: "Owner Panel | Babis Hub" },
+      { name: "description", content: "Manage scripts and account tools from Babis Hub." },
+      { property: "og:title", content: "Owner Panel | Babis Hub" },
+      { property: "og:description", content: "Manage scripts and account tools from Babis Hub." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -85,7 +86,7 @@ function LoadingShell() {
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Shield className="size-6" />
         </div>
-        <p className="text-sm text-muted-foreground">Loading Babis Premium…</p>
+        <p className="text-sm text-muted-foreground">Loading Babis Hub…</p>
       </div>
     </div>
   );
@@ -98,7 +99,7 @@ function Landing() {
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
             <Shield className="size-4 text-primary" />
-            Babis Premium
+            Babis Hub
           </div>
           <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl lg:text-6xl">
             Script access control for Roblox experiences.
@@ -310,17 +311,31 @@ function Dashboard() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="dashboard-grid min-h-screen">
-        <aside className={`${menuOpen ? "fixed" : "hidden"} inset-0 z-40 overflow-y-auto overscroll-contain bg-sidebar p-4 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto lg:border-r lg:border-sidebar-border`}>
-          <div className="mb-5 flex items-center justify-between">
+        <aside className={`dashboard-sidebar ${menuOpen ? "fixed" : "hidden"} inset-0 z-40 overflow-y-auto overscroll-contain p-4 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto lg:border-r lg:border-sidebar-border`}>
+          <div className="dashboard-sidebar-brand mb-5 flex items-center justify-between">
             <div>
-              <div className="text-lg font-semibold text-sidebar-foreground">Babis</div>
-              <div className="text-xs text-muted-foreground">Premium control panel</div>
+              <div className="flex items-center gap-2.5">
+                <img src="/app-icon.png" alt="" className="size-9 rounded-lg" />
+                <div>
+                  <div className="text-sm font-semibold text-sidebar-foreground">Babis Hub</div>
+                  <div className="text-xs text-sidebar-foreground/60">Management workspace</div>
+                </div>
+              </div>
             </div>
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X /></Button>
           </div>
+          <Button asChild variant="outline" className="mb-4 w-full justify-start" onClick={() => setMenuOpen(false)}>
+            <Link to="/">
+              <Home className="size-4" />
+              Back to Babis Hub
+            </Link>
+          </Button>
           <Button className="mb-4 w-full" onClick={() => { setScriptForm(emptyScript); setMenuOpen(false); }}>
             <Plus /> New script
           </Button>
+          <div className="mb-2 px-2 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/50">
+            Script library
+          </div>
           <div className="space-y-2">
             {scripts.map((script) => (
               <div key={script.id} className={`flex items-stretch gap-2 rounded-md border transition ${selectedScriptId === script.id ? "border-primary bg-primary text-primary-foreground" : "border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground hover:border-primary"}`}>

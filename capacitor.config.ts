@@ -4,7 +4,7 @@ const hostedAppUrl = process.env["CAPACITOR_SERVER_URL"] ?? "https://babis-keyma
 
 const config: CapacitorConfig = {
   appId: "com.babis.keymaster",
-  appName: "Babis Keymaster",
+  appName: "Babis Hub",
   webDir: ".output/public",
   server: {
     url: hostedAppUrl,

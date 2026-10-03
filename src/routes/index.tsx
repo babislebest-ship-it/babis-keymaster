@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  CircleHelp,
   Copy,
   Home,
   Menu,
@@ -12,10 +13,12 @@ import {
   Moon,
   Package,
   Pencil,
+  Play,
   Plus,
   Search,
   ShoppingBag,
   ShoppingCart,
+  Sparkles,
   Star,
   Sun,
   Trash2,
@@ -40,8 +43,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   deleteReview,
   deleteSiteContent,
-  getSiteContent,
-  getViewerState,
   saveReview,
   saveSiteContent,
 } from "@/lib/shop.functions";
@@ -49,17 +50,15 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Babis Scripts — Premium Roblox Scripts & Keys" },
+      { title: "Babis Hub — Shop and Account" },
       {
         name: "description",
-        content:
-          "Copy Babis premium Roblox scripts in one click, watch showcases, read reviews and grab a premium subscription with PayPal, card, Apple Pay or Google Pay.",
+        content: "Browse Babis Hub products, view product information and manage your account.",
       },
-      { property: "og:title", content: "Babis Scripts — Premium Roblox Scripts & Keys" },
+      { property: "og:title", content: "Babis Hub — Shop and Account" },
       {
         property: "og:description",
-        content:
-          "One-click script loaders, premium plans, showcases and reviews from the Babis community.",
+        content: "Browse Babis Hub products, view product information and manage your account.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -80,10 +79,9 @@ type FieldSpec = {
 
 const FIELDS: Record<TableName, FieldSpec[]> = {
   shop_items: [
-    { key: "title", label: "Script name", type: "text" },
+    { key: "title", label: "Product name", type: "text" },
     { key: "description", label: "Description", type: "textarea" },
     { key: "features", label: "Features (one per line)", type: "list" },
-    { key: "loader_command", label: "Loader command", type: "textarea" },
     { key: "video_url", label: "Video link (optional)", type: "text" },
     { key: "image_url", label: "Image link (optional)", type: "text" },
     { key: "price_label", label: "Price label", type: "text" },
@@ -149,7 +147,7 @@ const FIELDS: Record<TableName, FieldSpec[]> = {
 };
 
 const DEFAULT_TABS = [
-  { section_key: "scripts", label: "Scripts" },
+  { section_key: "scripts", label: "Products" },
   { section_key: "premium", label: "Premium" },
   { section_key: "videos", label: "Videos" },
   { section_key: "reviews", label: "Reviews" },
@@ -160,7 +158,7 @@ const DEFAULT_TABS = [
 const DEMO_SHOP_ITEMS: Row[] = [
   {
     id: "demo-keymaster-access",
-    title: "Keymaster Access (Demo)",
+    title: "Premium Access (Demo)",
     description:
       "A sample digital access product for trying the storefront and PayPal sandbox flow.",
     features: [
@@ -249,8 +247,6 @@ const lineKey = (l: { id: string; scriptId?: string | null }) => `${l.id}:${l.sc
 
 function Storefront() {
   const queryClient = useQueryClient();
-  const loadContent = useServerFn(getSiteContent);
-  const loadViewer = useServerFn(getViewerState);
   const saveContentFn = useServerFn(saveSiteContent);
   const deleteContentFn = useServerFn(deleteSiteContent);
   const saveReviewFn = useServerFn(saveReview);
@@ -259,6 +255,7 @@ function Storefront() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [planPicker, setPlanPicker] = useState<Row | null>(null);
@@ -273,12 +270,26 @@ function Storefront() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewBody, setReviewBody] = useState("");
 
-  const content = useQuery({ queryKey: ["site-content"], queryFn: () => loadContent() });
-  const viewer = useQuery({
-    queryKey: ["viewer", signedIn],
-    queryFn: () => loadViewer(),
-    enabled: signedIn,
-    retry: false,
+  const content = useQuery({
+    queryKey: ["site-content"],
+    queryFn: async () => {
+      const response = await fetch("/api/public/mobile/shop", {
+        headers: { Accept: "application/json" },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Shop data is temporarily unavailable.");
+      return {
+        shopItems: result.items ?? [],
+        plans: result.plans ?? [],
+        faq: result.faq ?? [],
+        videos: result.videos ?? [],
+        links: result.links ?? [],
+        tabs: result.tabs ?? [],
+        reviews: [],
+        scripts: [],
+        discordInviteUrl: result.discord_invite_url ?? "",
+      };
+    },
   });
 
   useEffect(() => {
@@ -325,17 +336,21 @@ function Storefront() {
   }, [theme]);
 
   const data = content.data;
-  const isOwner = Boolean(viewer.data?.isOwner);
-  const viewerId = viewer.data?.userId;
+  const viewerId: string | undefined = undefined;
 
-  const visible = (rows: Row[]) => (isOwner ? rows : rows.filter((r) => r.is_published !== false));
-  const scripts = visible(data?.shopItems?.length ? data.shopItems : DEMO_SHOP_ITEMS);
+  const visible = (rows: Row[]) => rows.filter((r) => r.is_published !== false);
+  const shopRows = data?.shopItems?.length
+    ? data.shopItems
+    : content.isError
+      ? []
+      : DEMO_SHOP_ITEMS;
+  const scripts = visible(shopRows);
   const filteredScripts = scripts.filter((item: Row) =>
     `${item.title ?? ""} ${item.description ?? ""}`
       .toLowerCase()
       .includes(productSearch.toLowerCase().trim()),
   );
-  const plans = visible(data?.plans ?? []);
+  const plans = visible(data?.plans ?? []).filter((plan) => plan.requires_script_choice !== true);
   const faq = visible(data?.faq ?? []);
   const videos = visible(data?.videos ?? []);
   const links = visible(data?.links ?? []);
@@ -424,36 +439,74 @@ function Storefront() {
   }, []);
 
   const OwnerBar = ({ table, row }: { table: TableName; row?: Row }) =>
-    isOwner ? (
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={() => setEditor({ table, row: row ?? {} })}>
-          <Pencil className="size-3.5" /> {row ? "Edit" : "Add"}
-        </Button>
-        {row?.id && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              if (confirm("Delete this item?")) deleteMutation.mutate({ table, id: row.id });
-            }}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        )}
-      </div>
-    ) : null;
+    null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="aurora" aria-hidden="true" />
 
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <aside className="desktop-app-sidebar" aria-label="Main sidebar">
+        <a className="desktop-sidebar-brand" href="/" aria-label="Babis Hub home">
+          <img src="/app-icon.png" alt="" className="size-10 rounded-xl" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">Babis Hub</span>
+            <span className="block text-xs text-sidebar-foreground/60">Store &amp; account</span>
+          </span>
+        </a>
+        <div className="desktop-sidebar-label">Browse</div>
+        <nav className="desktop-sidebar-links" aria-label="Store sections">
+          {tabs.map((tab: Row, index: number) => {
+            const Icon = [ShoppingBag, Sparkles, Play, Star, CircleHelp, Home][index % 6];
+            return (
+              <button
+                key={tab.id ?? tab.section_key}
+                type="button"
+                className="desktop-sidebar-link"
+                onClick={() => scrollTo(tab.section_key)}
+              >
+                <Icon className="size-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="desktop-sidebar-link"
+            onClick={() => scrollTo("orders")}
+          >
+            <Package className="size-4" />
+            <span>Orders</span>
+          </button>
+        </nav>
+        <div className="desktop-sidebar-spacer" />
+        <div className="desktop-sidebar-actions">
+          <button
+            type="button"
+            className="desktop-sidebar-link"
+            onClick={() => (signedIn ? setAccountOpen(true) : setAuthOpen(true))}
+          >
+            <UserRound className="size-4" />
+            <span>Account</span>
+          </button>
+          <button type="button" className="desktop-sidebar-link" onClick={() => setCartOpen(true)}>
+            <ShoppingCart className="size-4" />
+            <span>Shopping cart</span>
+            {cartCount > 0 && <span className="desktop-sidebar-badge">{cartCount}</span>}
+          </button>
+          <div className="desktop-sidebar-status">
+            <span className="size-2 rounded-full bg-emerald-400" />
+            <span>Secure storefront</span>
+          </div>
+        </div>
+      </aside>
+
+      <header className="storefront-header sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6">
           <button onClick={() => setMenuOpen(true)} className="menu-button" aria-label="Open menu">
             <Menu className="size-5" />
           </button>
           <div className="whitespace-nowrap text-sm font-semibold tracking-tight sm:text-lg">
-            Babis <span className="text-primary">Scripts</span>
+            Babis <span className="text-primary">Hub</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <Button
@@ -467,9 +520,21 @@ function Storefront() {
               {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
             </Button>
             {signedIn ? (
-              <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
-                Sign out
-              </Button>
+              <>
+                <Button variant="ghost" size="sm" onClick={() => setAccountOpen(true)}>
+                  Account
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    queryClient.removeQueries({ queryKey: ["mobile-account"] });
+                  }}
+                >
+                  Sign out
+                </Button>
+              </>
             ) : (
               <Button size="sm" onClick={() => setAuthOpen(true)}>
                 Sign in
@@ -512,53 +577,29 @@ function Storefront() {
               >
                 {tab.label}
               </button>
-              {isOwner && tab.id && (
-                <button
-                  className="px-2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setEditor({ table: "site_tabs", row: tab })}
-                >
-                  <Pencil className="size-3.5" />
-                </button>
-              )}
             </div>
           ))}
         </div>
-        {isOwner && (
-          <div className="mt-4 grid gap-2 px-5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditor({ table: "site_tabs", row: {} })}
-            >
-              <Plus className="size-4" /> Add menu tab
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/panel">Owner panel</Link>
-            </Button>
-          </div>
-        )}
       </nav>
 
-      <main className="relative mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+      <main className="storefront-main relative mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         {/* Hero */}
         <section className="reveal py-16 text-center sm:py-24">
           <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-1.5 text-xs text-muted-foreground">
-            <span className="size-2 animate-pulse rounded-full bg-primary" /> Trusted Roblox script
-            hub
+            <span className="size-2 animate-pulse rounded-full bg-primary" /> Babis Hub shop
           </div>
           <h1 className="text-balance text-4xl font-semibold leading-tight sm:text-6xl">
-            Premium Roblox scripts, <span className="text-primary">one click away</span>
+            Discover products, <span className="text-primary">all in one place</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            Copy a loader, grab a premium key, and get instant support. Undetected loaders, live
-            moderation and fast updates.
+            Browse the catalog, add products to your cart and manage your account securely.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button size="lg" onClick={() => scrollTo("scripts")}>
               Browse scripts
             </Button>
             <Button size="lg" variant="outline" onClick={() => scrollTo("premium")}>
-              See premium plans
+              See plans
             </Button>
           </div>
         </section>
@@ -566,8 +607,8 @@ function Storefront() {
         {/* Scripts */}
         <Section
           id="scripts"
-          title="Scripts"
-          subtitle="Copy the loader and paste it in your executor."
+          title="Products"
+          subtitle="Browse available products and view their details."
           action={<OwnerBar table="shop_items" />}
         >
           <label className="mb-4 flex max-w-md items-center gap-2 rounded-lg border border-border bg-card px-3">
@@ -617,22 +658,12 @@ function Storefront() {
                     />
                   )}
                 </button>
-                {item.loader_command && (
-                  <div className="mono-box mt-4 rounded-lg border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">
-                    {item.loader_command}
-                  </div>
-                )}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-primary">
                     {item.price_label ||
                       (item.price_cents ? money(item.price_cents, item.currency) : "Free")}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {item.loader_command && (
-                      <Button size="sm" onClick={() => copyText("Loader", item.loader_command)}>
-                        <Copy className="size-4" /> Copy loader
-                      </Button>
-                    )}
                     {item.price_cents > 0 && (
                       <Button
                         size="sm"
@@ -660,7 +691,11 @@ function Storefront() {
             {filteredScripts.length === 0 && (
               <Empty
                 text={
-                  scripts.length ? "No products match your search." : "No scripts published yet."
+                  content.isError
+                    ? "Shop data could not be loaded. Please try again later."
+                    : scripts.length
+                      ? "No products match your search."
+                      : "No products published yet."
                 }
               />
             )}
@@ -706,7 +741,7 @@ function Storefront() {
         <Section
           id="premium"
           title="Premium plans"
-          subtitle="Support the project and unlock every premium script."
+          subtitle="Browse additional plans available from the shop."
           action={<OwnerBar table="pricing_plans" />}
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -821,7 +856,7 @@ function Storefront() {
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">{review.body}</p>
-                  {(isOwner || review.user_id === viewerId) && (
+                  {review.user_id === viewerId && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -904,11 +939,6 @@ function Storefront() {
                   </button>
                   <div className={`faq-body ${open ? "is-open" : ""}`}>
                     <p className="px-4 pb-4 text-sm text-muted-foreground">{entry.answer}</p>
-                    {isOwner && (
-                      <div className="px-4 pb-4">
-                        <OwnerBar table="site_faq" row={entry} />
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -949,8 +979,8 @@ function Storefront() {
         </Section>
       </main>
 
-      <footer className="border-t border-border/60 py-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Babis Scripts ·{" "}
+      <footer className="storefront-footer border-t border-border/60 py-8 text-center text-sm text-muted-foreground">
+        © {new Date().getFullYear()} Babis Hub ·{" "}
         <Link to="/auth" className="hover:text-foreground">
           Staff login
         </Link>
@@ -964,7 +994,7 @@ function Storefront() {
           {
             label: "Account",
             icon: UserRound,
-            action: () => (signedIn ? window.location.assign("/panel") : setAuthOpen(true)),
+            action: () => (signedIn ? setAccountOpen(true) : setAuthOpen(true)),
           },
         ].map(({ label, icon: Icon, action }) => (
           <button key={label} type="button" onClick={action} className="mobile-nav-item">
@@ -1008,6 +1038,7 @@ function Storefront() {
       )}
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
 
       {selectedProduct && (
         <Dialog open onOpenChange={(open) => !open && setSelectedProduct(null)}>
@@ -1193,33 +1224,38 @@ function EditorDialog({
 }
 
 function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const clean = username.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,32}$/.test(clean))
-      return toast.error("Username: 3-32 letters, numbers or _");
-    if (password.length < 8) return toast.error("Password must be at least 8 characters");
-    if (mode === "signup" && password !== confirm) return toast.error("Passwords do not match");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
+      return toast.error("Enter a valid email address.");
+    if (password.length < 6 || password.length > 200)
+      return toast.error("Password must be between 6 and 200 characters.");
     setBusy(true);
     try {
-      const email = `${clean}@babis.local`;
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/`, data: { username: clean } },
-        });
-        if (error) throw error;
+      const response = await fetch("/api/public/mobile/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        access_token?: string;
+        refresh_token?: string;
+      };
+      if (!response.ok || !result.access_token || !result.refresh_token) {
+        throw new Error(result.error || "Sign in could not be completed.");
       }
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
-      toast.success(mode === "signup" ? "Account created" : "Signed in");
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+      });
+      if (sessionError) throw sessionError;
+      toast.success("Signed in");
       onClose();
     } catch (error) {
       toast.error("Failed", { description: (error as Error).message });
@@ -1232,16 +1268,18 @@ function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{mode === "signup" ? "Create an account" : "Sign in"}</DialogTitle>
-          <DialogDescription>Username and password only — no email needed.</DialogDescription>
+          <DialogTitle>Sign in</DialogTitle>
+          <DialogDescription>Sign in with your Babis Hub account email and password.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-3" onSubmit={submit}>
           <label className="grid gap-1 text-sm">
-            Username
+            Email
             <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
             />
           </label>
           <label className="grid gap-1 text-sm">
@@ -1250,22 +1288,103 @@ function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
+              autoComplete="current-password"
+              required
             />
           </label>
-          {mode === "signup" && (
-            <label className="grid gap-1 text-sm">
-              Confirm password
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-            </label>
-          )}
           <Button type="submit" disabled={busy}>
-            {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+            {busy ? "Please wait…" : "Sign in"}
           </Button>
         </form>
-        <Button variant="ghost" onClick={() => setMode(mode === "signup" ? "signin" : "signup")}>
-          {mode === "signup" ? "I already have an account" : "Create an account instead"}
-        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type MobileProfile = {
+  username?: string;
+  display_name: string | null;
+};
+
+type MobileOrder = {
+  id: string;
+  status: string;
+  amount_cents: number;
+  currency: string;
+  created_at: string;
+};
+
+type MobileAccount = {
+  user: { id: string | null; email: string | null };
+  profile: MobileProfile | null;
+  orders: MobileOrder[];
+};
+
+async function loadMobileAccount(): Promise<MobileAccount> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in to view your account.");
+
+  const response = await fetch("/api/public/mobile/me", {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+  });
+  const result = (await response.json()) as MobileAccount & { error?: string };
+  if (!response.ok) throw new Error(result.error || "Account request failed.");
+  return result;
+}
+
+function AccountDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const account = useQuery({
+    queryKey: ["mobile-account"],
+    enabled: open,
+    queryFn: loadMobileAccount,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Your account</DialogTitle>
+          <DialogDescription>View your profile and review purchases linked to your account.</DialogDescription>
+        </DialogHeader>
+        {account.isPending ? (
+          <p className="text-sm text-muted-foreground">Loading account…</p>
+        ) : account.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {account.error.message}
+          </p>
+        ) : (
+          <div className="grid gap-6">
+            <section className="grid gap-1 text-sm">
+              <h3 className="font-semibold">Profile</h3>
+              <p>{account.data.profile?.display_name || account.data.profile?.username || "Member"}</p>
+              {account.data.user.email && (
+                <p className="text-muted-foreground">{account.data.user.email}</p>
+              )}
+            </section>
+            <section className="grid gap-2">
+              <h3 className="font-semibold">Your orders</h3>
+              {account.data.orders.map((order) => (
+                <article
+                  key={order.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"
+                >
+                  <div>
+                    <div className="font-medium">{order.status}</div>
+                    <time className="text-xs text-muted-foreground">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </time>
+                  </div>
+                  <span className="font-semibold">{money(order.amount_cents, order.currency)}</span>
+                </article>
+              ))}
+              {account.data.orders.length === 0 && (
+                <p className="text-sm text-muted-foreground">No account-linked orders yet.</p>
+              )}
+            </section>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
