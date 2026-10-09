@@ -356,6 +356,11 @@ function Storefront() {
               )}
             </div>
           ))}
+          <div className="drawer-item">
+            <Link to="/licenses" className="flex-1 rounded-md px-3 py-3 text-left text-sm font-medium hover:bg-muted">
+              My licenses
+            </Link>
+          </div>
         </div>
         {isOwner && (
           <div className="mt-4 grid gap-2 px-5">
@@ -895,6 +900,10 @@ function CartDrawer({
       },
       onApprove: async (payload: { orderID: string }) => {
         const result: any = await captureOrder({ data: { orderId: payload.orderID } });
+        try {
+          const prev = JSON.parse(localStorage.getItem("babis-orders") || "[]");
+          localStorage.setItem("babis-orders", JSON.stringify([...new Set([...prev, payload.orderID])]));
+        } catch { /* ignore */ }
         const keys: DeliveredKey[] = Array.isArray(result?.keys) ? result.keys : [];
         toast.success("Payment complete", {
           description: keys.length > 0 ? "Your license key is ready." : "Your order has been recorded.",
