@@ -9,30 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as PanelRouteImport } from './routes/panel'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PanelRouteImport } from './routes/panel'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
+import { Route as ApiPublicHubRouteImport } from './routes/api/public/hub'
 import { Route as ApiPublicLoaderPublicIdRouteImport } from './routes/api/public/loader.$publicId'
-import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
-import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
-import { Route as ApiPublicMobileShopRouteImport } from './routes/api/public/mobile/shop'
-import { Route as ApiPublicMobileScriptsRouteImport } from './routes/api/public/mobile/scripts'
-import { Route as ApiPublicMobileMeRouteImport } from './routes/api/public/mobile/me'
-import { Route as ApiPublicMobileLoginRouteImport } from './routes/api/public/mobile/login'
-import { Route as ApiPublicMobileLicensesRouteImport } from './routes/api/public/mobile/licenses'
 import { Route as ApiPublicMobileBansRouteImport } from './routes/api/public/mobile/bans'
+import { Route as ApiPublicMobileLicensesRouteImport } from './routes/api/public/mobile/licenses'
+import { Route as ApiPublicMobileLoginRouteImport } from './routes/api/public/mobile/login'
+import { Route as ApiPublicMobileMeRouteImport } from './routes/api/public/mobile/me'
+import { Route as ApiPublicMobileScriptsRouteImport } from './routes/api/public/mobile/scripts'
+import { Route as ApiPublicMobileShopRouteImport } from './routes/api/public/mobile/shop'
+import { Route as ApiPublicRunPublicIdRouteImport } from './routes/api/public/run.$publicId'
+import { Route as ApiPublicShopImageNameRouteImport } from './routes/api/public/shop-image.$name'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PanelRoute = PanelRouteImport.update({
-  id: '/panel',
-  path: '/panel',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -40,14 +35,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PanelRoute = PanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
-  id: '/api/public/hub',
-  path: '/api/public/hub',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHeartbeatRoute = ApiPublicHeartbeatRouteImport.update({
@@ -55,39 +50,19 @@ const ApiPublicHeartbeatRoute = ApiPublicHeartbeatRouteImport.update({
   path: '/api/public/heartbeat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHubRoute = ApiPublicHubRouteImport.update({
+  id: '/api/public/hub',
+  path: '/api/public/hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLoaderPublicIdRoute = ApiPublicLoaderPublicIdRouteImport.update({
   id: '/api/public/loader/$publicId',
   path: '/api/public/loader/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
-  id: '/api/public/shop-image/$name',
-  path: '/api/public/shop-image/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
-  id: '/api/public/run/$publicId',
-  path: '/api/public/run/$publicId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMobileShopRoute = ApiPublicMobileShopRouteImport.update({
-  id: '/api/public/mobile/shop',
-  path: '/api/public/mobile/shop',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMobileScriptsRoute = ApiPublicMobileScriptsRouteImport.update({
-  id: '/api/public/mobile/scripts',
-  path: '/api/public/mobile/scripts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMobileMeRoute = ApiPublicMobileMeRouteImport.update({
-  id: '/api/public/mobile/me',
-  path: '/api/public/mobile/me',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMobileLoginRoute = ApiPublicMobileLoginRouteImport.update({
-  id: '/api/public/mobile/login',
-  path: '/api/public/mobile/login',
+const ApiPublicMobileBansRoute = ApiPublicMobileBansRouteImport.update({
+  id: '/api/public/mobile/bans',
+  path: '/api/public/mobile/bans',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMobileLicensesRoute = ApiPublicMobileLicensesRouteImport.update({
@@ -95,9 +70,34 @@ const ApiPublicMobileLicensesRoute = ApiPublicMobileLicensesRouteImport.update({
   path: '/api/public/mobile/licenses',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicMobileBansRoute = ApiPublicMobileBansRouteImport.update({
-  id: '/api/public/mobile/bans',
-  path: '/api/public/mobile/bans',
+const ApiPublicMobileLoginRoute = ApiPublicMobileLoginRouteImport.update({
+  id: '/api/public/mobile/login',
+  path: '/api/public/mobile/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileMeRoute = ApiPublicMobileMeRouteImport.update({
+  id: '/api/public/mobile/me',
+  path: '/api/public/mobile/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileScriptsRoute = ApiPublicMobileScriptsRouteImport.update({
+  id: '/api/public/mobile/scripts',
+  path: '/api/public/mobile/scripts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMobileShopRoute = ApiPublicMobileShopRouteImport.update({
+  id: '/api/public/mobile/shop',
+  path: '/api/public/mobile/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicRunPublicIdRoute = ApiPublicRunPublicIdRouteImport.update({
+  id: '/api/public/run/$publicId',
+  path: '/api/public/run/$publicId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
+  id: '/api/public/shop-image/$name',
+  path: '/api/public/shop-image/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -227,18 +227,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/panel': {
-      id: '/panel'
-      path: '/panel'
-      fullPath: '/panel'
-      preLoaderRoute: typeof PanelRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -248,18 +241,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/panel': {
+      id: '/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hub': {
-      id: '/api/public/hub'
-      path: '/api/public/hub'
-      fullPath: '/api/public/hub'
-      preLoaderRoute: typeof ApiPublicHubRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/heartbeat': {
@@ -269,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHeartbeatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hub': {
+      id: '/api/public/hub'
+      path: '/api/public/hub'
+      fullPath: '/api/public/hub'
+      preLoaderRoute: typeof ApiPublicHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/loader/$publicId': {
       id: '/api/public/loader/$publicId'
       path: '/api/public/loader/$publicId'
@@ -276,46 +276,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLoaderPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/shop-image/$name': {
-      id: '/api/public/shop-image/$name'
-      path: '/api/public/shop-image/$name'
-      fullPath: '/api/public/shop-image/$name'
-      preLoaderRoute: typeof ApiPublicShopImageNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/run/$publicId': {
-      id: '/api/public/run/$publicId'
-      path: '/api/public/run/$publicId'
-      fullPath: '/api/public/run/$publicId'
-      preLoaderRoute: typeof ApiPublicRunPublicIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mobile/shop': {
-      id: '/api/public/mobile/shop'
-      path: '/api/public/mobile/shop'
-      fullPath: '/api/public/mobile/shop'
-      preLoaderRoute: typeof ApiPublicMobileShopRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mobile/scripts': {
-      id: '/api/public/mobile/scripts'
-      path: '/api/public/mobile/scripts'
-      fullPath: '/api/public/mobile/scripts'
-      preLoaderRoute: typeof ApiPublicMobileScriptsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mobile/me': {
-      id: '/api/public/mobile/me'
-      path: '/api/public/mobile/me'
-      fullPath: '/api/public/mobile/me'
-      preLoaderRoute: typeof ApiPublicMobileMeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mobile/login': {
-      id: '/api/public/mobile/login'
-      path: '/api/public/mobile/login'
-      fullPath: '/api/public/mobile/login'
-      preLoaderRoute: typeof ApiPublicMobileLoginRouteImport
+    '/api/public/mobile/bans': {
+      id: '/api/public/mobile/bans'
+      path: '/api/public/mobile/bans'
+      fullPath: '/api/public/mobile/bans'
+      preLoaderRoute: typeof ApiPublicMobileBansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mobile/licenses': {
@@ -325,11 +290,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMobileLicensesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/mobile/bans': {
-      id: '/api/public/mobile/bans'
-      path: '/api/public/mobile/bans'
-      fullPath: '/api/public/mobile/bans'
-      preLoaderRoute: typeof ApiPublicMobileBansRouteImport
+    '/api/public/mobile/login': {
+      id: '/api/public/mobile/login'
+      path: '/api/public/mobile/login'
+      fullPath: '/api/public/mobile/login'
+      preLoaderRoute: typeof ApiPublicMobileLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/me': {
+      id: '/api/public/mobile/me'
+      path: '/api/public/mobile/me'
+      fullPath: '/api/public/mobile/me'
+      preLoaderRoute: typeof ApiPublicMobileMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/scripts': {
+      id: '/api/public/mobile/scripts'
+      path: '/api/public/mobile/scripts'
+      fullPath: '/api/public/mobile/scripts'
+      preLoaderRoute: typeof ApiPublicMobileScriptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mobile/shop': {
+      id: '/api/public/mobile/shop'
+      path: '/api/public/mobile/shop'
+      fullPath: '/api/public/mobile/shop'
+      preLoaderRoute: typeof ApiPublicMobileShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/run/$publicId': {
+      id: '/api/public/run/$publicId'
+      path: '/api/public/run/$publicId'
+      fullPath: '/api/public/run/$publicId'
+      preLoaderRoute: typeof ApiPublicRunPublicIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/shop-image/$name': {
+      id: '/api/public/shop-image/$name'
+      path: '/api/public/shop-image/$name'
+      fullPath: '/api/public/shop-image/$name'
+      preLoaderRoute: typeof ApiPublicShopImageNameRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
