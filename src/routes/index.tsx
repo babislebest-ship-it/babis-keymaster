@@ -356,6 +356,11 @@ function Storefront() {
               )}
             </div>
           ))}
+          <div className="drawer-item">
+            <Link to="/licenses" className="flex-1 rounded-md px-3 py-3 text-left text-sm font-medium hover:bg-muted">
+              My licenses
+            </Link>
+          </div>
         </div>
         {isOwner && (
           <div className="mt-4 grid gap-2 px-5">
