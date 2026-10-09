@@ -458,6 +458,28 @@ export const listMyLicenses = createServerFn({ method: "GET" })
     return { licenses: rows, orders: orders ?? [] };
   });
 
+export const resetLicenseUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ key: z.string().trim().min(4).max(64) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    const { data: orders } = await db.from("orders").select("delivered_keys").eq("user_id", context.userId);
+    const owns = (orders ?? []).some((o: any) =>
+      (Array.isArray(o.delivered_keys) ? o.delivered_keys : []).some((k: any) => k?.key === data.key),
+    );
+    if (!owns) throw new Error("This license is not linked to your account.");
+    const { data: license } = await db.from("script_licenses").select("id,status").eq("license_key", data.key).maybeSingle();
+    if (!license) throw new Error("License not found.");
+    if (license.status !== "active") throw new Error("Only active licenses can be reset.");
+    await db.from("license_seats").delete().eq("license_id", license.id);
+    const { error } = await db
+      .from("script_licenses")
+      .update({ bound_player_user_id: null, bound_player_name: null, seat_count: 0 })
+      .eq("id", license.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /* ------------------------------ Uploads ------------------------------- */
 
 export const uploadShopImage = createServerFn({ method: "POST" })

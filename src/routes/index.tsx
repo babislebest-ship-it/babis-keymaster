@@ -895,6 +895,10 @@ function CartDrawer({
       },
       onApprove: async (payload: { orderID: string }) => {
         const result: any = await captureOrder({ data: { orderId: payload.orderID } });
+        try {
+          const prev = JSON.parse(localStorage.getItem("babis-orders") || "[]");
+          localStorage.setItem("babis-orders", JSON.stringify([...new Set([...prev, payload.orderID])]));
+        } catch { /* ignore */ }
         const keys: DeliveredKey[] = Array.isArray(result?.keys) ? result.keys : [];
         toast.success("Payment complete", {
           description: keys.length > 0 ? "Your license key is ready." : "Your order has been recorded.",
