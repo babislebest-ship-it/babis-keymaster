@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { dashboardAction, getAccountState, getDashboardData, refreshPresence } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { listMyOrders } from "@/lib/shop.functions";
 
 // No head() here: the home route inherits title/description/og/twitter from
 // __root.tsx, and ships no og:image so serve-time hosting can inject the
@@ -365,6 +366,7 @@ function Dashboard() {
               <TabsTrigger value="history"><Ban className="mr-2 size-4" />Ban</TabsTrigger>
               <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
               <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
+              {can.owner ? <TabsTrigger value="purchases"><History className="mr-2 size-4" />Purchases</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
@@ -715,10 +717,80 @@ function Dashboard() {
                 <p className="mt-3 text-xs text-muted-foreground">Current live link: <code>{data?.discordInviteUrl ?? "—"}</code></p>
               </div>
             </TabsContent>
+
+            {can.owner ? (
+              <TabsContent value="purchases" className="grid gap-4">
+                <PurchasesPanel />
+              </TabsContent>
+            ) : null}
           </Tabs>
         </section>
       </div>
     </main>
+  );
+}
+
+function PurchasesPanel() {
+  const fetchOrders = useServerFn(listMyOrders);
+  const [filter, setFilter] = useState<"paid" | "all">("paid");
+  const { data, isLoading, refetch } = useQuery({ queryKey: ["owner-orders"], queryFn: () => fetchOrders() });
+  const orders = (data ?? []) as any[];
+  const paid = orders.filter((o) => o.status === "completed");
+  const rows = filter === "paid" ? paid : orders;
+  const revenue = paid.reduce((s, o) => s + Number(o.amount_cents ?? 0), 0);
+  const money = (c: number, cur = "EUR") => new Intl.NumberFormat("en-GB", { style: "currency", currency: cur }).format(c / 100);
+  return (
+    <div className="app-panel rounded-lg p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Purchase history</h2>
+          <p className="text-xs text-muted-foreground">Every PayPal checkout. "Abandoned" = checkout opened but never paid.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant={filter === "paid" ? "default" : "outline"} onClick={() => setFilter("paid")}>Paid</Button>
+          <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>All</Button>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh</Button>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{paid.length}</div><div className="text-xs text-muted-foreground">Paid orders</div></div>
+        <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{money(revenue)}</div><div className="text-xs text-muted-foreground">Revenue</div></div>
+        <div className="rounded-md border border-border bg-muted p-3"><div className="text-2xl font-semibold text-primary">{orders.length - paid.length}</div><div className="text-xs text-muted-foreground">Abandoned</div></div>
+      </div>
+      <div className="mt-4 rounded-md border border-border">
+        {isLoading ? <div className="p-6 text-sm text-muted-foreground">Loading…</div> : (
+          <ResponsiveRows rows={rows} empty="No purchases yet." render={(o) => {
+            const items = Array.isArray(o.items) ? o.items : [];
+            const keys = Array.isArray(o.delivered_keys) ? o.delivered_keys : [];
+            const done = o.status === "completed";
+            return (
+              <div className="grid gap-2 p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-medium">{o.discord_tag || o.buyer_name || o.buyer_email || "Anonymous buyer"}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{money(Number(o.amount_cents ?? 0), o.currency || "EUR")}</span>
+                    <span className={`rounded px-2 py-0.5 text-xs ${done ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{done ? "Paid" : o.status === "created" ? "Abandoned" : o.status}</span>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("en-GB")} · PayPal {o.paypal_order_id}{o.buyer_email ? ` · ${o.buyer_email}` : ""}{o.user_id ? " · Linked to account" : ""}</div>
+                <ul className="text-xs">
+                  {items.map((it: any, i: number) => <li key={i}>• {it.name}{it.scriptName ? ` — ${it.scriptName}` : ""} ×{it.quantity} ({money(Number(it.unit ?? 0) * Number(it.quantity ?? 1))})</li>)}
+                </ul>
+                {keys.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {keys.map((k: any) => (
+                      <button key={k.key} type="button" onClick={() => { navigator.clipboard.writeText(k.key); toast.success("Key copied"); }} className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 font-mono text-xs">
+                        <Copy className="size-3" />{k.key}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }} />
+        )}
+      </div>
+    </div>
   );
 }
 
