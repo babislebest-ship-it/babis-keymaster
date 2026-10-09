@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as LicensesRouteImport } from './routes/licenses'
 import { Route as PanelRouteImport } from './routes/panel'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiPublicHeartbeatRouteImport } from './routes/api/public/heartbeat'
@@ -33,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LicensesRoute = LicensesRouteImport.update({
+  id: '/licenses',
+  path: '/licenses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PanelRoute = PanelRouteImport.update({
@@ -104,6 +110,7 @@ const ApiPublicShopImageNameRoute = ApiPublicShopImageNameRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/licenses': typeof LicensesRoute
   '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/licenses': typeof LicensesRoute
   '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/licenses': typeof LicensesRoute
   '/panel': typeof PanelRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/public/heartbeat': typeof ApiPublicHeartbeatRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/licenses'
     | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/licenses'
     | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/licenses'
     | '/panel'
     | '/sitemap.xml'
     | '/api/public/heartbeat'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  LicensesRoute: typeof LicensesRoute
   PanelRoute: typeof PanelRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicHeartbeatRoute: typeof ApiPublicHeartbeatRoute
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/licenses': {
+      id: '/licenses'
+      path: '/licenses'
+      fullPath: '/licenses'
+      preLoaderRoute: typeof LicensesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/panel': {
@@ -338,6 +358,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  LicensesRoute: LicensesRoute,
   PanelRoute: PanelRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicHeartbeatRoute: ApiPublicHeartbeatRoute,
