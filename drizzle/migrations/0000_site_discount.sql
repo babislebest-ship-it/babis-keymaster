@@ -1,0 +1,1 @@
+ALTER TABLE public.app_settings ADD COLUMN IF NOT EXISTS discount_enabled boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS discount_percent integer NOT NULL DEFAULT 0 CHECK (discount_percent BETWEEN 0 AND 95), ADD COLUMN IF NOT EXISTS discount_name text NOT NULL DEFAULT '';
