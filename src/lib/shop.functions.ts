@@ -27,7 +27,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     db.from("site_links").select("*").order("sort_order"),
     db.from("site_tabs").select("*").order("sort_order"),
     db.from("site_reviews").select("*").order("created_at", { ascending: false }).limit(60),
-    db.from("app_settings").select("discord_invite_url").limit(1).maybeSingle(),
+    db.from("app_settings").select("discord_invite_url,discount_enabled,discount_percent,discount_name").limit(1).maybeSingle(),
     db.from("scripts").select("id,name,is_active,require_license").eq("is_active", true).eq("require_license", true).order("name"),
   ]);
   return {
@@ -40,8 +40,28 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     reviews: reviews.data ?? [],
     scripts: (scripts.data ?? []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
     discordInviteUrl: settings.data?.discord_invite_url ?? "",
+    discount: settings.data?.discount_enabled && settings.data?.discount_percent > 0
+      ? { percent: Number(settings.data.discount_percent), name: String(settings.data.discount_name || "Sale") }
+      : null,
   };
 });
+
+export const saveDiscount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ enabled: z.boolean(), percent: z.number().int().min(0).max(95), name: z.string().trim().max(60) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    await assertOwner(db, context.userId);
+    const { data: row } = await db.from("app_settings").select("id").limit(1).maybeSingle();
+    const values = { discount_enabled: data.enabled, discount_percent: data.percent, discount_name: data.name, updated_by: context.userId };
+    const { error } = row
+      ? await db.from("app_settings").update(values).eq("id", row.id)
+      : await db.from("app_settings").insert(values);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
 
 
 export const getViewerState = createServerFn({ method: "GET" })
@@ -213,6 +233,8 @@ export const createPaypalOrder = createServerFn({ method: "POST" })
     const db = await admin();
     const currency = "EUR";
     const lines: OrderLine[] = [];
+    const { data: disc } = await db.from("app_settings").select("discount_enabled,discount_percent").limit(1).maybeSingle();
+    const pct = disc?.discount_enabled ? Math.min(95, Math.max(0, Number(disc.discount_percent ?? 0))) : 0;
 
     for (const line of data.items) {
       const { data: row } = await db
@@ -225,8 +247,8 @@ export const createPaypalOrder = createServerFn({ method: "POST" })
         .eq("id", line.id)
         .maybeSingle();
       if (!row || row.is_published === false) throw new Error("An item in your cart is no longer available.");
-      const price = Number(row.price_cents ?? 0);
-      if (price <= 0) throw new Error("This item is not purchasable online.");
+      const price = Math.max(1, Math.round(Number(row.price_cents ?? 0) * (100 - pct) / 100));
+      if (Number(row.price_cents ?? 0) <= 0) throw new Error("This item is not purchasable online.");
 
       let scriptId: string | null = null;
       let scriptName: string | null = null;

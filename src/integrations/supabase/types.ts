@@ -17,18 +17,27 @@ export type Database = {
       app_settings: {
         Row: {
           discord_invite_url: string
+          discount_enabled: boolean
+          discount_name: string
+          discount_percent: number
           id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           discord_invite_url?: string
+          discount_enabled?: boolean
+          discount_name?: string
+          discount_percent?: number
           id?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           discord_invite_url?: string
+          discount_enabled?: boolean
+          discount_name?: string
+          discount_percent?: number
           id?: string
           updated_at?: string
           updated_by?: string | null
