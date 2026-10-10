@@ -207,8 +207,9 @@ function generateLicenseKey() {
 }
 
 export const createPaypalOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) => cartSchema.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const db = await admin();
     const currency = "EUR";
     const lines: OrderLine[] = [];
@@ -293,6 +294,7 @@ export const createPaypalOrder = createServerFn({ method: "POST" })
     await db.from("orders").insert({
       paypal_order_id: json.id,
       status: "created",
+      user_id: context.userId,
       buyer_email: data.buyerEmail ?? null,
       buyer_name: data.buyerName ?? null,
       discord_tag: data.discordTag ?? null,

@@ -638,6 +638,8 @@ function Storefront() {
         cart={cart}
         total={cartTotal}
         setCart={setCart}
+        signedIn={signedIn}
+        onRequireAccount={() => { setCartOpen(false); setAuthOpen(true); }}
         onPaid={(keys) => {
           setCart([]);
           setCartOpen(false);
@@ -849,7 +851,11 @@ function CartDrawer({
   total,
   setCart,
   onPaid,
+  signedIn,
+  onRequireAccount,
 }: {
+  signedIn: boolean;
+  onRequireAccount: () => void;
   open: boolean;
   onClose: () => void;
   cart: CartLine[];
@@ -884,7 +890,7 @@ function CartDrawer({
 
   useEffect(() => {
     const paypal = (window as any).paypal;
-    if (!open || !ready || !paypal || !buttonsRef.current || cart.length === 0) return;
+    if (!open || !signedIn || !ready || !paypal || !buttonsRef.current || cart.length === 0) return;
     const container = buttonsRef.current;
     container.innerHTML = "";
     const instance = paypal.Buttons({
@@ -919,7 +925,7 @@ function CartDrawer({
         instance.close();
       } catch { /* ignore */ }
     };
-  }, [open, ready, cart, discordTag, createOrder, captureOrder, onPaid]);
+  }, [open, signedIn, ready, cart, discordTag, createOrder, captureOrder, onPaid]);
 
   return (
     <>
@@ -969,7 +975,14 @@ function CartDrawer({
               Discord tag (for delivery)
               <Input value={discordTag} onChange={(e) => setDiscordTag(e.target.value)} placeholder="yourname" />
             </label>
-            <div ref={buttonsRef} className="mt-4" />
+            {signedIn ? (
+              <div ref={buttonsRef} className="mt-4" />
+            ) : (
+              <div className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm">
+                <p className="text-muted-foreground">You need an account to pay. Your license will be saved in "My licenses".</p>
+                <Button className="mt-3 w-full" onClick={onRequireAccount}>Create account / Sign in</Button>
+              </div>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               PayPal, credit/debit card, Apple Pay and Google Pay are offered when available on your device.
             </p>
