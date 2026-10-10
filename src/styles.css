@@ -339,3 +339,43 @@
 #lovable-badge {
   display: none !important;
 }
+
+/* Halloween theme (storefront) */
+.halloween {
+  --background: oklch(0.14 0.03 300);
+  --card: oklch(0.19 0.035 300);
+  --popover: oklch(0.19 0.035 300);
+  --muted: oklch(0.23 0.03 300);
+  --border: oklch(0.33 0.05 310);
+  --input: oklch(0.27 0.04 300);
+  --primary: oklch(0.74 0.18 55);
+  --primary-foreground: oklch(0.15 0.03 300);
+  --ring: oklch(0.74 0.18 55);
+  --accent: oklch(0.6 0.2 145);
+  --secondary: oklch(0.3 0.08 305);
+  --halloween-web: oklch(0.85 0.02 300 / 0.35);
+}
+.sale-banner {
+  background: linear-gradient(90deg, var(--primary), oklch(0.6 0.2 30), var(--primary));
+  background-size: 200% 100%;
+  color: var(--primary-foreground);
+  animation: sale-shift 6s linear infinite;
+}
+@keyframes sale-shift { to { background-position: 200% 0; } }
+.halloween-decor { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+.web {
+  position: absolute; top: 0; width: 180px; height: 180px; opacity: 0.8;
+  background:
+    repeating-radial-gradient(circle at 0 0, transparent 0 22px, var(--halloween-web) 22px 23px),
+    repeating-conic-gradient(from 0deg at 0 0, var(--halloween-web) 0deg 0.6deg, transparent 0.6deg 15deg);
+  -webkit-mask: radial-gradient(circle at 0 0, black 60%, transparent 72%);
+  mask: radial-gradient(circle at 0 0, black 60%, transparent 72%);
+}
+.web-left { left: 0; }
+.web-right { right: 0; transform: scaleX(-1); }
+.spider { position: absolute; top: 0; right: 70px; font-size: 22px; animation: spider-drop 7s ease-in-out infinite; }
+.spider::before { content: ""; position: absolute; bottom: 100%; left: 50%; width: 1px; height: 400px; background: var(--halloween-web); }
+@keyframes spider-drop { 0%,100% { transform: translateY(20px); } 50% { transform: translateY(150px); } }
+.float-emoji { position: absolute; bottom: -60px; font-size: 26px; opacity: 0.35; animation-name: float-up; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes float-up { 0% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-55vh) translateX(20px) rotate(15deg); } 100% { transform: translateY(-115vh) rotate(-10deg); } }
+@media (prefers-reduced-motion: reduce) { .float-emoji, .spider, .sale-banner { animation: none; } .float-emoji { display: none; } }

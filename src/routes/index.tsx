@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { saveDiscount } from "@/lib/shop.functions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -203,6 +204,10 @@ function Storefront() {
 
   const data = content.data as any;
   const isOwner = Boolean((viewer.data as any)?.isOwner);
+  const discount = (data?.discount ?? null) as { percent: number; name: string } | null;
+  const pct = discount?.percent ?? 0;
+  const disc = (c: number) => (pct > 0 ? Math.max(1, Math.round((c * (100 - pct)) / 100)) : c);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const viewerId = (viewer.data as any)?.userId as string | undefined;
 
   const visible = (rows: Row[]) => (isOwner ? rows : rows.filter((r) => r.is_published !== false));
@@ -281,7 +286,7 @@ function Storefront() {
   }
 
   const cartCount = cart.reduce((sum, l) => sum + l.quantity, 0);
-  const cartTotal = cart.reduce((sum, l) => sum + l.quantity * l.priceCents, 0);
+  const cartTotal = cart.reduce((sum, l) => sum + l.quantity * disc(l.priceCents), 0);
 
   const OwnerBar = ({ table, row }: { table: TableName; row?: Row }) =>
     isOwner ? (
@@ -304,8 +309,19 @@ function Storefront() {
     ) : null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="halloween min-h-screen bg-background text-foreground">
       <div className="aurora" aria-hidden="true" />
+      <HalloweenDecor />
+      {(discount || isOwner) && (
+        <div className="sale-banner relative z-40 flex items-center justify-center gap-3 px-4 py-2 text-center text-sm font-semibold">
+          {discount ? <span>🎃 {discount.name} — {discount.percent}% OFF everything! 🎃</span> : <span>No site-wide discount active</span>}
+          {isOwner && (
+            <Button size="sm" variant="secondary" className="h-7" onClick={() => setDiscountOpen(true)}>
+              <Pencil className="size-3.5" /> Discount
+            </Button>
+          )}
+        </div>
+      )}
 
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -422,7 +438,7 @@ function Storefront() {
                   </div>
                 )}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-primary">{item.price_label || (item.price_cents ? money(item.price_cents, item.currency) : "Free")}</div>
+                  <div className="text-sm font-semibold text-primary">{item.price_cents ? <Price cents={item.price_cents} currency={item.currency} label={item.price_label} pct={pct} disc={disc} /> : item.price_label || "Free"}</div>
                   <div className="flex flex-wrap gap-2">
                     {item.loader_command && (
                       <Button size="sm" onClick={() => copyText("Loader", item.loader_command)}>
@@ -455,7 +471,7 @@ function Storefront() {
                 {plan.highlight && <span className="badge-pill absolute -top-3 left-5">Most popular</span>}
                 <div className="text-3xl">{plan.emoji}</div>
                 <h3 className="mt-2 text-lg font-semibold">{plan.name}</h3>
-                <div className="mt-1 text-2xl font-semibold text-primary">{plan.price_label || money(plan.price_cents, plan.currency)}</div>
+                <div className="mt-1 text-2xl font-semibold text-primary"><Price cents={plan.price_cents} currency={plan.currency} label={plan.price_label} pct={pct} disc={disc} /></div>
                 <p className="mt-1 text-sm text-muted-foreground">{plan.subtitle}</p>
                 {Array.isArray(plan.perks) && (
                   <ul className="mt-4 grid gap-1.5 text-sm">
@@ -639,6 +655,7 @@ function Storefront() {
         total={cartTotal}
         setCart={setCart}
         signedIn={signedIn}
+        disc={disc}
         onRequireAccount={() => { setCartOpen(false); setAuthOpen(true); }}
         onPaid={(keys) => {
           setCart([]);
@@ -669,6 +686,7 @@ function Storefront() {
       {deliveredKeys && <KeysDialog keys={deliveredKeys} onClose={() => setDeliveredKeys(null)} onCopy={copyText} />}
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+      {discountOpen && <DiscountDialog current={discount} onClose={() => setDiscountOpen(false)} onSaved={() => content.refetch()} />}
 
 
       {editor && (
@@ -853,7 +871,9 @@ function CartDrawer({
   onPaid,
   signedIn,
   onRequireAccount,
+  disc,
 }: {
+  disc: (c: number) => number;
   signedIn: boolean;
   onRequireAccount: () => void;
   open: boolean;
@@ -959,7 +979,7 @@ function CartDrawer({
                     <Plus className="size-3" />
                   </Button>
                 </div>
-                <div className="text-sm font-semibold text-primary">{money(line.priceCents * line.quantity)}</div>
+                <div className="text-sm font-semibold text-primary">{money(disc(line.priceCents) * line.quantity)}</div>
               </div>
             </div>
 
@@ -1086,6 +1106,73 @@ function KeysDialog({
         <Button className="w-full" onClick={onClose}>
           Done
         </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Price({ cents, currency, label, pct, disc }: { cents: number; currency?: string; label?: string; pct: number; disc: (c: number) => number }) {
+  if (pct <= 0) return <>{label || money(cents, currency)}</>;
+  return (
+    <span className="inline-flex items-baseline gap-2">
+      <span className="text-sm text-muted-foreground line-through">{money(cents, currency)}</span>
+      <span>{money(disc(cents), currency)}</span>
+      <span className="badge-pill text-xs">-{pct}%</span>
+    </span>
+  );
+}
+
+function HalloweenDecor() {
+  const items = ["🎃", "🦇", "👻", "🎃", "🦇", "🕷️", "🎃", "👻"];
+  return (
+    <div className="halloween-decor" aria-hidden="true">
+      <div className="web web-left" />
+      <div className="web web-right" />
+      <div className="spider">🕷️</div>
+      {items.map((e, i) => (
+        <span key={i} className="float-emoji" style={{ left: `${(i * 13 + 5) % 95}%`, animationDelay: `${i * 1.7}s`, animationDuration: `${14 + (i % 4) * 3}s` }}>{e}</span>
+      ))}
+    </div>
+  );
+}
+
+function DiscountDialog({ current, onClose, onSaved }: { current: { percent: number; name: string } | null; onClose: () => void; onSaved: () => void }) {
+  const save = useServerFn(saveDiscount);
+  const [enabled, setEnabled] = useState(Boolean(current));
+  const [percent, setPercent] = useState(current?.percent ?? 50);
+  const [name, setName] = useState(current?.name ?? "Halloween Sale");
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    try {
+      await save({ data: { enabled, percent: Math.round(Math.min(95, Math.max(0, percent))), name: name.trim() || "Sale" } });
+      toast.success(enabled ? "Discount is live" : "Discount turned off");
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast.error("Could not save", { description: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Site-wide discount</DialogTitle>
+          <DialogDescription>Applies to every script and premium plan, including checkout.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Discount active
+          </label>
+          <label className="grid gap-1 text-sm">Sale name<Input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Halloween Sale" /></label>
+          <label className="grid gap-1 text-sm">Discount (%)<Input type="number" min={1} max={95} value={percent} onChange={(e) => setPercent(Number(e.target.value))} /></label>
+          <div className="flex flex-wrap gap-2">
+            {[10, 25, 50, 75].map((n) => <Button key={n} size="sm" variant="outline" onClick={() => setPercent(n)}>-{n}%</Button>)}
+          </div>
+          <Button onClick={submit} disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
