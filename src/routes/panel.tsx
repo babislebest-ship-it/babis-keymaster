@@ -422,7 +422,28 @@ function Dashboard() {
                     <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Show as script to buy<Switch checked={scriptForm.isForSale} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isForSale: value })} /></label>
                     <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Free trial<Switch checked={scriptForm.trialEnabled} onCheckedChange={(value) => setScriptForm({ ...scriptForm, trialEnabled: value })} /></label>
                     {scriptForm.trialEnabled && (
-                      <label className="grid gap-1 text-sm sm:col-span-2">Trial length (days, per player)<Input type="number" min={1} max={365} value={scriptForm.trialDays} onChange={(event) => setScriptForm({ ...scriptForm, trialDays: Math.max(1, Number(event.target.value) || 1) })} /></label>
+                      <div className="grid gap-2 sm:col-span-2">
+                        <label className="grid gap-1 text-sm">Trial length (days, per player)<Input type="number" min={1} max={365} value={scriptForm.trialDays} onChange={(event) => setScriptForm({ ...scriptForm, trialDays: Math.max(1, Number(event.target.value) || 1) })} /></label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Quick set:</span>
+                          {[1, 3, 7, 10, 14, 30].map((days) => (
+                            <button
+                              key={days}
+                              type="button"
+                              onClick={() => setScriptForm({ ...scriptForm, trialDays: days })}
+                              className={
+                                "rounded-md border px-2 py-1 text-xs transition-colors " +
+                                (scriptForm.trialDays === days
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-muted text-foreground hover:border-primary")
+                              }
+                            >
+                              {days}d
+                            </button>
+                          ))}
+                          <span className="text-xs text-muted-foreground">= {scriptForm.trialDays} day{scriptForm.trialDays === 1 ? "" : "s"} ({scriptForm.trialDays * 24}h)</span>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
