@@ -497,6 +497,38 @@ export type Database = {
           },
         ]
       }
+      script_trials: {
+        Row: {
+          id: string
+          player_key: string
+          player_name: string | null
+          script_id: string
+          started_at: string
+        }
+        Insert: {
+          id?: string
+          player_key: string
+          player_name?: string | null
+          script_id: string
+          started_at?: string
+        }
+        Update: {
+          id?: string
+          player_key?: string
+          player_name?: string | null
+          script_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_trials_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       script_usage_events: {
         Row: {
           created_at: string
@@ -647,12 +679,15 @@ export type Database = {
           game_url: string
           id: string
           is_active: boolean
+          is_for_sale: boolean
           name: string
           owner_id: string
           place_id: string | null
           public_id: string
           require_license: boolean
           source_code: string
+          trial_enabled: boolean
+          trial_minutes: number
           universe_id: string | null
           updated_at: string
           updated_by: string | null
@@ -664,12 +699,15 @@ export type Database = {
           game_url?: string
           id?: string
           is_active?: boolean
+          is_for_sale?: boolean
           name: string
           owner_id: string
           place_id?: string | null
           public_id?: string
           require_license?: boolean
           source_code?: string
+          trial_enabled?: boolean
+          trial_minutes?: number
           universe_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -681,12 +719,15 @@ export type Database = {
           game_url?: string
           id?: string
           is_active?: boolean
+          is_for_sale?: boolean
           name?: string
           owner_id?: string
           place_id?: string | null
           public_id?: string
           require_license?: boolean
           source_code?: string
+          trial_enabled?: boolean
+          trial_minutes?: number
           universe_id?: string | null
           updated_at?: string
           updated_by?: string | null
