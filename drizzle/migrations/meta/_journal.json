@@ -8,6 +8,13 @@
       "when": 1791617581569,
       "tag": "0000_site_discount",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791702956793,
+      "tag": "0001_script_sale_and_trials",
+      "breakpoints": true
     }
   ]
 }

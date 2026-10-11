@@ -28,7 +28,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(async ()
     db.from("site_tabs").select("*").order("sort_order"),
     db.from("site_reviews").select("*").order("created_at", { ascending: false }).limit(60),
     db.from("app_settings").select("discord_invite_url,discount_enabled,discount_percent,discount_name").limit(1).maybeSingle(),
-    db.from("scripts").select("id,name,is_active,require_license").eq("is_active", true).eq("require_license", true).order("name"),
+    db.from("scripts").select("id,name,is_active,require_license").eq("is_active", true).eq("require_license", true).eq("is_for_sale", true).order("name"),
   ]);
   return {
     shopItems: items.data ?? [],
@@ -262,10 +262,10 @@ export const createPaypalOrder = createServerFn({ method: "POST" })
           if (!line.scriptId) throw new Error("Please choose the script for your premium plan.");
           const { data: script } = await db
             .from("scripts")
-            .select("id,name,is_active,require_license")
+            .select("id,name,is_active,require_license,is_for_sale")
             .eq("id", line.scriptId)
             .maybeSingle();
-          if (!script || script.is_active === false || script.require_license === false)
+          if (!script || script.is_active === false || script.require_license === false || script.is_for_sale === false)
             throw new Error("The selected script is not available.");
           scriptId = script.id;
           scriptName = script.name;
@@ -367,6 +367,7 @@ export const capturePaypalOrder = createServerFn({ method: "POST" })
             .select("id,owner_id,name")
             .eq("is_active", true)
             .eq("require_license", true)
+            .eq("is_for_sale", true)
             .order("created_at")
             .limit(1)
             .maybeSingle()

@@ -25,6 +25,8 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           universeId: string;
           jobId: string;
           executorName: string;
+          trial: boolean;
+          trialCheck: boolean;
         };
         try {
           const body = await request.json();
@@ -37,6 +39,8 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
               universeId: z.string().trim().max(80).optional().default(""),
               jobId: z.string().trim().max(120).optional().default(""),
               executorName: z.string().trim().max(80).optional().default(""),
+              trial: z.boolean().optional().default(false),
+              trialCheck: z.boolean().optional().default(false),
             })
             .parse(body) as never;
         } catch {
@@ -116,8 +120,37 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           return reply({ ok: false, message: `Access blocked. ${matchedBan.reason} Appeal: ${matchedBan.appeal_url}` }, 403);
         }
 
+        // Free trial: per player, per script, only for license scripts.
+        const trialAvailable = Boolean(script.require_license && script.trial_enabled);
+        let usingTrial = false;
+        if (parsed.trialCheck || parsed.trial) {
+          if (!trialAvailable) return reply({ ok: false, trialAvailable: false, message: "No trial for this script." }, parsed.trialCheck ? 200 : 403);
+          const trialKey = (parsed.playerUserId && `id:${parsed.playerUserId}`)
+            || (parsed.playerName && `name:${parsed.playerName.toLowerCase()}`)
+            || `ip:${ipHash}`;
+          const totalMs = Number(script.trial_minutes ?? 10080) * 60000;
+          const { data: trialRow } = await db
+            .from("script_trials")
+            .select("*")
+            .eq("script_id", script.id)
+            .eq("player_key", trialKey)
+            .maybeSingle();
+          const leftSeconds = trialRow
+            ? Math.max(0, Math.floor((new Date(trialRow.started_at).getTime() + totalMs - Date.now()) / 1000))
+            : Math.floor(totalMs / 1000);
+          if (parsed.trialCheck) return reply({ ok: true, trialAvailable: true, trialStarted: Boolean(trialRow), secondsLeft: leftSeconds });
+          if (trialRow && leftSeconds <= 0) {
+            const { getAppealUrl } = await import("@/lib/loader-source.server");
+            return reply({ ok: false, trialExpired: true, message: `Your trial expired. You need to buy a license. Join the Discord: ${await getAppealUrl()}` }, 403);
+          }
+          if (!trialRow) {
+            await db.from("script_trials").insert({ script_id: script.id, player_key: trialKey, player_name: parsed.playerName || null });
+          }
+          usingTrial = true;
+        }
+
         let license = null;
-        if (script.require_license) {
+        if (script.require_license && !usingTrial) {
           if (!parsed.licenseKey) return reply({ ok: false, message: "A license key is required." }, 401);
           // A key is valid either for this exact script, or for every script
           // when it was created as an all-scripts key.
