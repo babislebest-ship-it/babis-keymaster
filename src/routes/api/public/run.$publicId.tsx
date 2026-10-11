@@ -17,11 +17,6 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
         const reply = (body: Record<string, unknown>, status = 200) =>
           Response.json(body, { status, headers: corsHeaders });
 
-        const { isBlockedLoaderClient } = await import("@/lib/loader-source.server");
-        if (isBlockedLoaderClient(request.headers.get("user-agent") || "")) {
-          return reply({ ok: false, message: "Forbidden" }, 403);
-        }
-
         let parsed: {
           licenseKey: string;
           playerUserId: string;
@@ -355,11 +350,7 @@ export const Route = createFileRoute("/api/public/run/$publicId")({
           }
         }
 
-        const key = new TextEncoder().encode(String(session.session_token));
-        const raw = new TextEncoder().encode(String(script.source_code ?? ""));
-        let hex = "";
-        for (let i = 0; i < raw.length; i++) hex += (raw[i] ^ key[i % key.length]).toString(16).padStart(2, "0");
-        return reply({ ok: true, payload: hex, scriptName: script.name, sessionToken: session.session_token });
+        return reply({ ok: true, source: script.source_code, scriptName: script.name, sessionToken: session.session_token });
       },
       OPTIONS: async () =>
         new Response(null, {

@@ -270,16 +270,7 @@ local function launch()
         status.Text = "This runtime does not support dynamic Luau execution."
         return
     end
-    local function decodeSource(hex, key)
-        local out, kl, i = {}, #key, 0
-        for pair in string.gmatch(hex, "%x%x") do
-            i = i + 1
-            out[i] = string.char(bit32.bxor(tonumber(pair, 16), string.byte(key, (i - 1) % kl + 1)))
-        end
-        return table.concat(out)
-    end
-    local fn, compileError = compile(decodeSource(tostring(response.payload or ""), tostring(sessionToken or "")))
-    response = nil
+    local fn, compileError = compile(tostring(response.source or ""))
     if type(fn) ~= "function" then
         warn("Babis compile error: " .. tostring(compileError))
         return
@@ -314,18 +305,14 @@ ${autoLaunch}
 `;
 }
 
-const BROWSERISH =
-  /Mozilla|Chrome|Safari|Firefox|Edg\/|curl|wget|python|Go-http|Discord|bot|node|undici|axios|aiohttp|okhttp|java|postman|insomnia|httpie|got\/|deno|bun|libwww|ruby|php|powershell|http\.rb|requests/i;
+const BROWSERISH = /Mozilla|Chrome|Safari|Firefox|Edg\/|curl|wget|python|Go-http/i;
 const ROBLOXISH =
   /Roblox|HttpGet|WinInet|Synapse|Script-Ware|KRNL|Fluxus|Hydrogen|Delta|Arceus|Xeno|Wave|Solara|Swift|Celery|AWP|Valyse|Zorara|Luau/i;
 
 /** Only Roblox clients / executors may read the raw loader source. */
 export function isBlockedLoaderClient(userAgent: string): boolean {
   const isRoblox = ROBLOXISH.test(userAgent);
-  // Allowlist: an empty or unknown client is refused, not just known browsers/bots.
-  if (!userAgent.trim()) return true;
-  if (BROWSERISH.test(userAgent) && !/Roblox/i.test(userAgent)) return true;
-  return !isRoblox;
+  return !isRoblox && BROWSERISH.test(userAgent);
 }
 
 /** Reads the configurable Discord appeal link, with a safe fallback. */
