@@ -39,7 +39,7 @@ keyPadding.PaddingRight = UDim.new(0, 12)
 keyPadding.Parent = keyBox`
     : `local keyBox = { Text = "" }`;
 
-  const panelHeight = showKeyBox ? 248 : 200;
+  const panelHeight = showKeyBox ? 302 : 200;
   const buttonText = showKeyBox ? "Verify and launch" : "Launch";
   const autoLaunch =
     alwaysAutoLaunch || !showKeyBox
@@ -178,6 +178,36 @@ button.TextColor3 = Color3.fromRGB(18, 16, 10)
 button.TextSize = 14
 button.Parent = panel
 
+local trialButton = { Visible = false, Text = "" }
+if ${showKeyBox ? "true" : "false"} then
+    trialButton = Instance.new("TextButton")
+    trialButton.Name = "Trial"
+    trialButton.Size = UDim2.new(1, 0, 0, 42)
+    trialButton.BackgroundColor3 = Color3.fromRGB(40, 43, 37)
+    trialButton.BorderSizePixel = 0
+    trialButton.Font = Enum.Font.GothamBold
+    trialButton.Text = "Trial: checking..."
+    trialButton.TextColor3 = Color3.fromRGB(246, 225, 173)
+    trialButton.TextSize = 14
+    trialButton.Visible = false
+    trialButton.Parent = panel
+    local trialStroke = Instance.new("UIStroke")
+    trialStroke.Color = Color3.fromRGB(218, 178, 86)
+    trialStroke.Transparency = 0.4
+    trialStroke.Parent = trialButton
+end
+
+local function formatLeft(seconds)
+    seconds = math.max(0, math.floor(tonumber(seconds) or 0))
+    local d = math.floor(seconds / 86400)
+    local h = math.floor((seconds % 86400) / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    if d > 0 then return d .. "d " .. h .. "h left" end
+    if h > 0 then return h .. "h " .. m .. "m left" end
+    return m .. "m left"
+end
+
+local useTrial = false
 local sessionToken = nil
 local launched = false
 local function closeGui()
@@ -194,7 +224,8 @@ local function launch()
     button.Text = "Launching..."
     status.Text = "Verifying access..."
     local body = {
-        licenseKey = keyBox.Text or "",
+        licenseKey = useTrial and "" or (keyBox.Text or ""),
+        trial = useTrial,
         playerUserId = player and tostring(player.UserId) or "",
         playerName = player and player.Name or "",
         placeId = tostring(game.PlaceId),
@@ -208,12 +239,13 @@ local function launch()
         launched = false
         button.Active = true
         button.Text = "${buttonText}"
+        useTrial = false
         status.Text = tostring((response and response.message) or ("HTTP " .. tostring(httpStatus)))
         if httpStatus == 401 or httpStatus == 403 then status.Text = status.Text .. " | Appeal: " .. APPEAL_URL end
         return
     end
     sessionToken = response.sessionToken
-    if keyBox.Text and #keyBox.Text > 0 then saveCachedKey(keyBox.Text) end
+    if not useTrial and keyBox.Text and #keyBox.Text > 0 then saveCachedKey(keyBox.Text) end
     status.Text = "Access granted. Starting " .. tostring(response.scriptName or "script") .. "..."
     closeGui()
     task.spawn(function()
@@ -247,7 +279,28 @@ local function launch()
     if not runOk then warn("Babis runtime error: " .. tostring(runError)) end
 end
 
-button.MouseButton1Click:Connect(launch)
+button.MouseButton1Click:Connect(function() useTrial = false launch() end)
+if trialButton.Visible ~= nil and typeof(trialButton) == "Instance" then
+    trialButton.MouseButton1Click:Connect(function() useTrial = true launch() end)
+    task.spawn(function()
+        local ok, text = safeRequest(RUN_URL, "POST", {
+            trialCheck = true,
+            playerUserId = player and tostring(player.UserId) or "",
+            playerName = player and player.Name or "",
+            placeId = tostring(game.PlaceId),
+            universeId = tostring(game.GameId),
+        })
+        local info = decode(text or "")
+        if ok and info.ok and info.trialAvailable then
+            if info.trialStarted and (tonumber(info.secondsLeft) or 0) <= 0 then
+                trialButton.Text = "Trial: expired"
+            else
+                trialButton.Text = "Trial: " .. formatLeft(info.secondsLeft)
+            end
+            trialButton.Visible = true
+        end
+    end)
+end
 ${autoLaunch}
 `;
 }

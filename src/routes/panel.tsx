@@ -404,7 +404,7 @@ function Dashboard() {
                         }
                       }}
                     />
-                    <Button onClick={() => action.mutate({ type: "saveScript", payload: scriptForm })} disabled={!can.scripts || action.isPending}>
+                    <Button onClick={() => action.mutate({ type: "saveScript", payload: { ...scriptForm, trialMinutes: scriptForm.trialDays * 1440 } })} disabled={!can.scripts || action.isPending}>
                       <Save /> Save
                     </Button>
                   </div>
