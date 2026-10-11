@@ -149,6 +149,9 @@ const emptyScript = {
   sourceCode: "",
   requireLicense: true,
   isActive: true,
+  isForSale: false,
+  trialEnabled: false,
+  trialDays: 7,
 };
 
 function Dashboard() {
@@ -281,6 +284,9 @@ function Dashboard() {
       sourceCode: script.source_code ?? "",
       requireLicense: Boolean(script.require_license),
       isActive: Boolean(script.is_active),
+      isForSale: Boolean((script as any).is_for_sale),
+      trialEnabled: Boolean((script as any).trial_enabled),
+      trialDays: Math.max(1, Math.round(Number((script as any).trial_minutes ?? 10080) / 1440)),
     });
     setActiveScriptId(script.id);
     setMenuOpen(false);
@@ -411,6 +417,15 @@ function Dashboard() {
                   <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Require license<Switch checked={scriptForm.requireLicense} onCheckedChange={(value) => setScriptForm({ ...scriptForm, requireLicense: value })} /></label>
                   <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Active<Switch checked={scriptForm.isActive} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isActive: value })} /></label>
                 </div>
+                {scriptForm.requireLicense && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Show as script to buy<Switch checked={scriptForm.isForSale} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isForSale: value })} /></label>
+                    <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Free trial<Switch checked={scriptForm.trialEnabled} onCheckedChange={(value) => setScriptForm({ ...scriptForm, trialEnabled: value })} /></label>
+                    {scriptForm.trialEnabled && (
+                      <label className="grid gap-1 text-sm sm:col-span-2">Trial length (days, per player)<Input type="number" min={1} max={365} value={scriptForm.trialDays} onChange={(event) => setScriptForm({ ...scriptForm, trialDays: Math.max(1, Number(event.target.value) || 1) })} /></label>
+                    )}
+                  </div>
+                )}
                 <Textarea className="mt-3 min-h-[430px] resize-y text-sm" spellCheck={false} value={scriptForm.sourceCode} onChange={(event) => setScriptForm({ ...scriptForm, sourceCode: event.target.value })} placeholder="Paste authorized Luau source here" />
               </div>
               <div className="app-panel rounded-lg p-4 sm:p-5">
