@@ -183,18 +183,14 @@ if ${showKeyBox ? "true" : "false"} then
     trialButton = Instance.new("TextButton")
     trialButton.Name = "Trial"
     trialButton.Size = UDim2.new(1, 0, 0, 42)
-    trialButton.BackgroundColor3 = Color3.fromRGB(40, 43, 37)
+    trialButton.BackgroundColor3 = Color3.fromRGB(218, 178, 86)
     trialButton.BorderSizePixel = 0
     trialButton.Font = Enum.Font.GothamBold
     trialButton.Text = "Trial: checking..."
-    trialButton.TextColor3 = Color3.fromRGB(246, 225, 173)
+    trialButton.TextColor3 = Color3.fromRGB(18, 16, 10)
     trialButton.TextSize = 14
     trialButton.Visible = false
     trialButton.Parent = panel
-    local trialStroke = Instance.new("UIStroke")
-    trialStroke.Color = Color3.fromRGB(218, 178, 86)
-    trialStroke.Transparency = 0.4
-    trialStroke.Parent = trialButton
 end
 
 local function formatLeft(seconds)
