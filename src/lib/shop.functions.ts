@@ -101,6 +101,9 @@ export const saveSiteContent = createServerFn({ method: "POST" })
     delete row["id"];
     delete row["created_at"];
     delete row["updated_at"];
+    if (table === "shop_items" && "script_status" in row) {
+      row["script_status"] = z.enum(["working", "not_working", "patched", "fix_in_progress"]).nullable().parse(row["script_status"]);
+    }
     if (data.id) {
       const { error } = await db.from(table).update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
