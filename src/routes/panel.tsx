@@ -36,7 +36,71 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { dashboardAction, getAccountState, getDashboardData, refreshPresence } from "@/lib/babis.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { listMyOrders } from "@/lib/shop.functions";
+import { listMyOrders, listTrials, manageTrial } from "@/lib/shop.functions";
+
+function TrialsPanel() {
+  const fetchTrials = useServerFn(listTrials);
+  const manage = useServerFn(manageTrial);
+  const [search, setSearch] = useState("");
+  const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const { data, isLoading, refetch } = useQuery({ queryKey: ["owner-trials"], queryFn: () => fetchTrials() });
+  const mut = useMutation({
+    mutationFn: (v: { id: string; action: "add" | "reset" | "delete"; minutes?: number }) => manage({ data: v }),
+    onSuccess: () => { toast.success("Trial updated"); refetch(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const rows = ((data ?? []) as any[]).filter((t) =>
+    `${t.player_name ?? ""} ${t.player_key} ${t.scripts?.name ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+  );
+  const left = (t: any) => new Date(t.started_at).getTime() + Number(t.scripts?.trial_minutes ?? 10080) * 60000 - Date.now();
+  const fmt = (ms: number) => {
+    if (ms <= 0) return "Expired";
+    const h = Math.floor(ms / 3600000);
+    return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h left` : `${h}h ${Math.floor((ms % 3600000) / 60000)}m left`;
+  };
+  const active = ((data ?? []) as any[]).filter((t) => left(t) > 0).length;
+  return (
+    <div className="app-panel rounded-lg p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Trials</h2>
+          <p className="text-xs text-muted-foreground">{active} active · {(data ?? []).length - active} expired. Add days to give a player more trial time.</p>
+        </div>
+        <div className="flex gap-2">
+          <Input placeholder="Search player or script" value={search} onChange={(e) => setSearch(e.target.value)} className="w-56" />
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh</Button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {isLoading ? <div className="p-6 text-sm text-muted-foreground">Loading…</div> : rows.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">No trials yet.</div>
+        ) : rows.map((t) => {
+          const ms = left(t);
+          const days = amounts[t.id] ?? 1;
+          return (
+            <div key={t.id} className="grid gap-2 rounded-md border border-border p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium">{t.player_name || t.player_key}</div>
+                  <div className="text-xs text-muted-foreground">{t.scripts?.name ?? "Deleted script"} · started {new Date(t.started_at).toLocaleString("en-GB")}</div>
+                </div>
+                <span className={`rounded px-2 py-0.5 text-xs ${ms > 0 ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{fmt(ms)}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input type="number" min={1} max={365} value={days} onChange={(e) => setAmounts((a) => ({ ...a, [t.id]: Math.max(1, Number(e.target.value) || 1) }))} className="h-8 w-20" />
+                <span className="text-xs text-muted-foreground">days</span>
+                <Button size="sm" disabled={mut.isPending} onClick={() => mut.mutate({ id: t.id, action: "add", minutes: days * 1440 })}><Plus className="mr-1 size-3" />Add time</Button>
+                <Button size="sm" variant="outline" disabled={mut.isPending} onClick={() => mut.mutate({ id: t.id, action: "add", minutes: -days * 1440 })}>Remove time</Button>
+                <Button size="sm" variant="outline" disabled={mut.isPending} onClick={() => mut.mutate({ id: t.id, action: "reset" })}>Restart trial</Button>
+                <Button size="sm" variant="outline" disabled={mut.isPending} onClick={() => mut.mutate({ id: t.id, action: "delete" })}><Trash2 className="mr-1 size-3" />Delete</Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // No head() here: the home route inherits title/description/og/twitter from
 // __root.tsx, and ships no og:image so serve-time hosting can inject the
@@ -373,6 +437,7 @@ function Dashboard() {
               <TabsTrigger value="staff"><UserCog className="mr-2 size-4" />Staff</TabsTrigger>
               <TabsTrigger value="settings"><Link2 className="mr-2 size-4" />Discord link</TabsTrigger>
               {can.owner ? <TabsTrigger value="purchases"><History className="mr-2 size-4" />Purchases</TabsTrigger> : null}
+              {can.owner ? <TabsTrigger value="trials"><History className="mr-2 size-4" />Trials</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="scripts" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.45fr)]">
@@ -757,6 +822,11 @@ function Dashboard() {
             {can.owner ? (
               <TabsContent value="purchases" className="grid gap-4">
                 <PurchasesPanel />
+              </TabsContent>
+            ) : null}
+            {can.owner ? (
+              <TabsContent value="trials" className="grid gap-4">
+                <TrialsPanel />
               </TabsContent>
             ) : null}
           </Tabs>
