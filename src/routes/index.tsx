@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { saveDiscount } from "@/lib/shop.functions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,11 +61,19 @@ export const Route = createFileRoute("/")({
 type Row = Record<string, any>;
 type TableName = "shop_items" | "pricing_plans" | "site_faq" | "site_videos" | "site_links" | "site_tabs";
 
-type FieldSpec = { key: string; label: string; type: "text" | "textarea" | "list" | "bool" | "number" };
+type FieldSpec = { key: string; label: string; type: "text" | "textarea" | "list" | "bool" | "number" | "status" };
+
+const SCRIPT_STATUSES = [
+  { value: "working", label: "Working", color: "text-chart-2 bg-chart-2/10 border-chart-2/30" },
+  { value: "not_working", label: "Not working", color: "text-destructive bg-destructive/10 border-destructive/30" },
+  { value: "patched", label: "Patched", color: "text-chart-4 bg-chart-4/10 border-chart-4/30" },
+  { value: "fix_in_progress", label: "Fix in progress", color: "text-chart-3 bg-chart-3/10 border-chart-3/30" },
+];
 
 const FIELDS: Record<TableName, FieldSpec[]> = {
   shop_items: [
     { key: "title", label: "Script name", type: "text" },
+    { key: "script_status", label: "Status", type: "status" },
     { key: "description", label: "Description", type: "textarea" },
     { key: "features", label: "Features (one per line)", type: "list" },
     { key: "loader_command", label: "Loader command", type: "textarea" },
@@ -416,6 +425,13 @@ function Storefront() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold">{item.title}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Status</span>
+                      {(() => {
+                        const status = SCRIPT_STATUSES.find((entry) => entry.value === item.script_status);
+                        return <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium ${status?.color ?? "border-border bg-muted text-muted-foreground"}`}><span className="size-1.5 shrink-0 rounded-full bg-current" />{status?.label ?? "Not specified"}</span>;
+                      })()}
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
                   </div>
                   {item.badge && <span className="badge-pill">{item.badge}</span>}
@@ -766,6 +782,7 @@ function EditorDialog({
       if (field.type === "list") payload[field.key] = String(value).split("\n").map((s) => s.trim()).filter(Boolean);
       else if (field.type === "number") payload[field.key] = Number(value) || 0;
       else if (field.type === "bool") payload[field.key] = Boolean(value);
+      else if (field.type === "status") payload[field.key] = value || null;
       else payload[field.key] = String(value ?? "");
     }
     onSave(payload);
@@ -784,6 +801,14 @@ function EditorDialog({
               {field.label}
               {field.type === "textarea" || field.type === "list" ? (
                 <Textarea rows={field.type === "list" ? 4 : 3} value={form[field.key]} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} />
+              ) : field.type === "status" ? (
+                <Select value={form[field.key] || "unspecified"} onValueChange={(value) => setForm({ ...form, [field.key]: value === "unspecified" ? "" : value })}>
+                  <SelectTrigger aria-label="Status" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unspecified">Not specified</SelectItem>
+                    {SCRIPT_STATUSES.map((status) => <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               ) : field.type === "bool" ? (
                 <Switch checked={Boolean(form[field.key])} onCheckedChange={(v) => setForm({ ...form, [field.key]: v })} />
               ) : (

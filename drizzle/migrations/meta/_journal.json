@@ -15,6 +15,13 @@
       "when": 1791702956793,
       "tag": "0001_script_sale_and_trials",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791919968973,
+      "tag": "0002_shop_script_status",
+      "breakpoints": true
     }
   ]
 }

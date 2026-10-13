@@ -1,0 +1,2 @@
+ALTER TABLE public.shop_items ADD COLUMN script_status text CHECK (script_status IN ('working', 'not_working', 'patched', 'fix_in_progress'));
+COMMENT ON COLUMN public.shop_items.script_status IS 'Owner-selected public script health status; NULL means not yet specified.';

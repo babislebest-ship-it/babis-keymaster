@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Store public script health on shop items as an optional, constrained status, editable through owner-only content saves; this keeps storefront labels independent of execution and licensing rules.
