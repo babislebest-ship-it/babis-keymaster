@@ -415,7 +415,50 @@ export const listMyOrders = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+
+/* ------------------------------ Trials ------------------------------ */
+
+export const listTrials = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await admin();
+    await assertOwner(db, context.userId);
+    const { data } = await db
+      .from("script_trials")
+      .select("id,script_id,player_key,player_name,started_at,scripts(name,trial_minutes)")
+      .order("started_at", { ascending: false })
+      .limit(500);
+    return data ?? [];
+  });
+
+export const manageTrial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), action: z.enum(["add", "reset", "delete"]), minutes: z.number().int().min(-525600).max(525600).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    await assertOwner(db, context.userId);
+    if (data.action === "delete") {
+      await db.from("script_trials").delete().eq("id", data.id);
+      return { ok: true };
+    }
+    if (data.action === "reset") {
+      await db.from("script_trials").update({ started_at: new Date().toISOString() }).eq("id", data.id);
+      return { ok: true };
+    }
+    const { data: row } = await db.from("script_trials").select("started_at,scripts(trial_minutes)").eq("id", data.id).maybeSingle();
+    if (!row) throw new Error("Trial not found.");
+    const totalMs = Number(row.scripts?.trial_minutes ?? 10080) * 60000;
+    // If already expired, extend from now instead of from the old end.
+    const end = Math.max(new Date(row.started_at).getTime() + totalMs, Date.now());
+    const newStart = end + (data.minutes ?? 0) * 60000 - totalMs;
+    await db.from("script_trials").update({ started_at: new Date(newStart).toISOString() }).eq("id", data.id);
+    return { ok: true };
+  });
+
 /* ------------------------------ Licenses ------------------------------ */
+
 
 export const claimOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
