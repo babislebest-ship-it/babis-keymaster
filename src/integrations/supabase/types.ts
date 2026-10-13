@@ -747,6 +747,7 @@ export type Database = {
           loader_command: string
           price_cents: number
           price_label: string
+          script_status: string | null
           sort_order: number
           title: string
           updated_at: string
@@ -764,6 +765,7 @@ export type Database = {
           loader_command?: string
           price_cents?: number
           price_label?: string
+          script_status?: string | null
           sort_order?: number
           title: string
           updated_at?: string
@@ -781,6 +783,7 @@ export type Database = {
           loader_command?: string
           price_cents?: number
           price_label?: string
+          script_status?: string | null
           sort_order?: number
           title?: string
           updated_at?: string
