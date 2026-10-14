@@ -386,6 +386,11 @@ function Storefront() {
               My licenses
             </Link>
           </div>
+          <div className="drawer-item">
+            <Link to="/premium" className="flex-1 rounded-md px-3 py-3 text-left text-sm font-medium hover:bg-muted">
+              Premium scripts
+            </Link>
+          </div>
         </div>
         {isOwner && (
           <div className="mt-4 grid gap-2 px-5">

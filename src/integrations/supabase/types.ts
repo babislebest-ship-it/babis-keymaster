@@ -685,6 +685,7 @@ export type Database = {
           place_id: string | null
           public_id: string
           require_license: boolean
+          show_in_premium: boolean
           source_code: string
           trial_enabled: boolean
           trial_minutes: number
@@ -705,6 +706,7 @@ export type Database = {
           place_id?: string | null
           public_id?: string
           require_license?: boolean
+          show_in_premium?: boolean
           source_code?: string
           trial_enabled?: boolean
           trial_minutes?: number
@@ -725,6 +727,7 @@ export type Database = {
           place_id?: string | null
           public_id?: string
           require_license?: boolean
+          show_in_premium?: boolean
           source_code?: string
           trial_enabled?: boolean
           trial_minutes?: number

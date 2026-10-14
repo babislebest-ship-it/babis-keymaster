@@ -215,6 +215,7 @@ const emptyScript = {
   isActive: true,
   isForSale: false,
   trialEnabled: false,
+  showInPremium: false,
   trialDays: 7,
 };
 
@@ -350,6 +351,7 @@ function Dashboard() {
       isActive: Boolean(script.is_active),
       isForSale: Boolean((script as any).is_for_sale),
       trialEnabled: Boolean((script as any).trial_enabled),
+      showInPremium: Boolean((script as any).show_in_premium),
       trialDays: Math.max(1, Math.round(Number((script as any).trial_minutes ?? 10080) / 1440)),
     });
     setActiveScriptId(script.id);
@@ -486,6 +488,7 @@ function Dashboard() {
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Show as script to buy<Switch checked={scriptForm.isForSale} onCheckedChange={(value) => setScriptForm({ ...scriptForm, isForSale: value })} /></label>
                     <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Free trial<Switch checked={scriptForm.trialEnabled} onCheckedChange={(value) => setScriptForm({ ...scriptForm, trialEnabled: value })} /></label>
+                    <label className="flex items-center justify-between rounded-md border border-border bg-muted p-3 text-sm">Show in Premium scripts<Switch checked={scriptForm.showInPremium} onCheckedChange={(value) => setScriptForm({ ...scriptForm, showInPremium: value })} /></label>
                     {scriptForm.trialEnabled && (
                       <div className="grid gap-2 sm:col-span-2">
                         <label className="grid gap-1 text-sm">Trial length (days, per player)<Input type="number" min={1} max={365} value={scriptForm.trialDays} onChange={(event) => setScriptForm({ ...scriptForm, trialDays: Math.max(1, Number(event.target.value) || 1) })} /></label>

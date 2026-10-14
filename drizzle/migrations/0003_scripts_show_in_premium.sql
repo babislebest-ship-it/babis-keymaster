@@ -1,0 +1,1 @@
+ALTER TABLE public.scripts ADD COLUMN IF NOT EXISTS show_in_premium boolean NOT NULL DEFAULT false;
