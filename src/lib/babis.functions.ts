@@ -289,6 +289,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
           isActive: z.boolean(),
           isForSale: z.boolean().optional().default(false),
           trialEnabled: z.boolean().optional().default(false),
+          showInPremium: z.boolean().optional().default(false),
           trialMinutes: z.number().int().min(1).max(525600).optional().default(10080),
         })
         .parse(data.payload);
@@ -320,6 +321,7 @@ export const dashboardAction = createServerFn({ method: "POST" })
         is_active: payload.isActive,
         is_for_sale: payload.requireLicense && payload.isForSale,
         trial_enabled: payload.requireLicense && payload.trialEnabled,
+        show_in_premium: payload.requireLicense && payload.showInPremium,
         trial_minutes: payload.trialMinutes,
       };
 
