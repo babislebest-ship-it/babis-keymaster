@@ -578,3 +578,38 @@ export const uploadShopImage = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: `/api/public/shop-image/${objectName}` };
   });
+
+/* --------------------------- Premium scripts --------------------------- */
+
+export const listMyPremiumScripts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await admin();
+    const { data: orders } = await db.from("orders").select("delivered_keys").eq("user_id", context.userId);
+    const keys = (orders ?? []).flatMap((o: any) => (Array.isArray(o.delivered_keys) ? o.delivered_keys : []))
+      .map((k: any) => String(k?.key ?? "")).filter(Boolean);
+    if (keys.length === 0) return { scripts: [] as Array<{ id: string; name: string; description: string | null; publicId: string; licenseKey: string; expiresAt: string | null }> };
+    const { data: licenses } = await db
+      .from("script_licenses")
+      .select("license_key,script_id,all_scripts,status,expires_at")
+      .in("license_key", keys);
+    const now = Date.now();
+    const valid = (licenses ?? []).filter((l: any) => l.status === "active" && (!l.expires_at || new Date(l.expires_at).getTime() > now));
+    const out = new Map<string, { id: string; name: string; description: string | null; publicId: string; licenseKey: string; expiresAt: string | null }>();
+    const globalLic = valid.find((l: any) => l.all_scripts);
+    if (globalLic) {
+      const { data: all } = await db.from("scripts").select("id,name,description,public_id")
+        .eq("is_active", true).eq("require_license", true).eq("show_in_premium", true).order("name");
+      for (const s of all ?? []) out.set(s.id, { id: s.id, name: s.name, description: s.description, publicId: s.public_id, licenseKey: globalLic.license_key, expiresAt: globalLic.expires_at });
+    }
+    const specific = valid.filter((l: any) => !l.all_scripts && l.script_id && !out.has(l.script_id));
+    if (specific.length) {
+      const { data: rows } = await db.from("scripts").select("id,name,description,public_id")
+        .in("id", specific.map((l: any) => l.script_id)).eq("is_active", true);
+      for (const s of rows ?? []) {
+        const l = specific.find((x: any) => x.script_id === s.id);
+        out.set(s.id, { id: s.id, name: s.name, description: s.description, publicId: s.public_id, licenseKey: l.license_key, expiresAt: l.expires_at });
+      }
+    }
+    return { scripts: [...out.values()] };
+  });
